@@ -36,7 +36,7 @@ DATASET_NAMED_MIXTURES = {
     ],
 
     "bridge": [
-        ("bridge_orig_1.0.0_lerobot", 1.0, "oxe_bridge"),
+        ("bridge_orig_lerobot", 1.0, "oxe_bridge"),
     ],
     # "bridge_rt_1": [
     #     ("bridge_orig_1.0.0_lerobot", 1.0, "oxe_bridge"),

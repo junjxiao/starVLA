@@ -6,18 +6,18 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --config_yaml ./examples/SimplerEnv/train_files/starvla_cotrain_oxe.yaml \
       --framework.name QwenGR00T \
-      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
+      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/workspace/zengshuang.zs/data/oxe \
-      --datasets.vla_data.data_mix bridge_rt_1 \
-      --datasets.vla_data.per_device_batch_size 8 \
+      --datasets.vla_data.data_mix bridge \
+      --datasets.vla_data.per_device_batch_size 32 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules '' \
-      --trainer.max_train_steps 20000 \
+      --trainer.max_train_steps 50000 \
       --trainer.save_interval 2000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
-      --run_root_dir /mnt/workspace/zengshuang.zs/output/bridge_rt_1_na175 \
-      --run_id 1214_bridge_rt_1_QwenGR00T \
+      --run_root_dir /mnt/workspace/zengshuang.zs/output/bridge \
+      --run_id 1216_bridge_Qwen3vlGR00T \
       "
 
 # 打印将要传递的参数，方便调试

@@ -3,24 +3,24 @@
 echo `which python`
 
 export SimplerEnv_PATH=/mnt/workspace/zengshuang.zs/SimplerEnv
-export PYTHONPATH=/mnt/workspace/zengshuang.zs/env/simpler_env:${PYTHONPATH}
+export PYTHONPATH=/mnt/workspace/junjin/conda/simpler_env:${PYTHONPATH}
 export PYTHONPATH=$(pwd):${PYTHONPATH}
 
-MODEL_PATH=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3VL-GR00T-Bridge-RT-1/checkpoints/steps_20000_pytorch_model.pt
-logging_dir=/mnt/workspace/zengshuang.zs/eval/simpler/Qwen3VL-GR00T-Bridge-RT-1
+MODEL_PATH=/mnt/workspace/zengshuang.zs/checkpoints/Qwen-GR00T-Bridge/checkpoints/steps_45000_pytorch_model.pt
+logging_dir=/mnt/workspace/junjin/code/starVLA/outputs/simpler/Qwen-GR00T-Bridge
 # MODEL_PATH=$1
 ckpt_path=${MODEL_PATH}
 TSET_NUM=1
 # export DEBUG=1
 
-port=5678
+port=56799
 
-IFS=',' read -r -a CUDA_DEVICES <<< "$CUDA_VISIBLE_DEVICES"
-NUM_GPUS=${#CUDA_DEVICES[@]} 
+# IFS=',' read -r -a CUDA_DEVICES <<< "$CUDA_VISIBLE_DEVICES"
+# NUM_GPUS=${#CUDA_DEVICES[@]} 
 
-echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
-echo "CUDA_DEVICES: ${CUDA_DEVICES[@]}"
-echo "NUM_GPUS: $NUM_GPUS"
+# echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+# echo "CUDA_DEVICES: ${CUDA_DEVICES[@]}"
+# echo "NUM_GPUS: $NUM_GPUS"
 
 scene_name=bridge_table_1_v1
 robot=widowx
@@ -83,7 +83,7 @@ for i in "${!ENV_NAMES_V2[@]}"; do
     mkdir -p "${logging_dir}"
     echo "▶️ Launching V2 task [${env}] run#${run_idx} on GPU $gpu_id, log → ${log_file}"
 
-    CUDA_VISIBLE_DEVICES=0 python examples/SimplerEnv/eval_files/start_simpler_env.py \
+    CUDA_VISIBLE_DEVICES=3 python examples/SimplerEnv/eval_files/start_simpler_env.py \
       --ckpt-path ${ckpt_path} \
       --port ${port} \
       --robot ${robot} \
@@ -98,10 +98,11 @@ for i in "${!ENV_NAMES_V2[@]}"; do
       --robot-init-y ${robot_init_y} ${robot_init_y} 1 \
       --obj-variation-mode episode \
       --obj-episode-range 0 24 \
+      --logging-dir ${logging_dir} \
       --robot-init-rot-quat-center 0 0 0 1 \
       --robot-init-rot-rpy-range 0 0 1 0 0 1 0 0 1 \
       2>&1 | tee "${log_file}"
   done
 done
 
-# echo "✅ Finished"
+echo "✅ Finished"

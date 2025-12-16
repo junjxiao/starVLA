@@ -42,7 +42,12 @@ framework:
       num_layers: 16
       output_dim: 1024
       positional_embeddings: null
-
+  spatial_model:
+    model_name_or_path: /mnt/nas-data-5/junjin/pretrained_models/vggt
+    output_dim: 2048
+  spatial_projector:
+    hidden_dim: 2048
+    output_dim: 2560
   reduce_in_full_precision: true
 
 

@@ -10,14 +10,14 @@
 # export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00T
-freeze_module_list="qwen_vl_interface.model.model"
+Framework_name=QwenGR00TSpatial #QwenGR00T
+freeze_module_list="qwen_vl_interface.model.model,spatial_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/nas-data-3/yangyandan/libero
 data_mix=libero_10
-run_root_dir=/mnt/workspace/zengshuang.zs/output/test
-run_id=1212_QwenGR00T
+run_root_dir=/mnt/workspace/junjin/code/starVLA/training_output/test_libero
+run_id=1216_QwenGR00TSpatial_libero10
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -61,7 +61,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
+CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1 \
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
   --config_yaml ${config_yaml} \

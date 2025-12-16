@@ -1,7 +1,7 @@
 #!/bin/bash
 
-your_ckpt=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
-base_port=10012
+your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1212_libero4in1_QwenGR00T/checkpoints/steps_10000_pytorch_model.pt
+base_port=10010
 export star_vla_python=/mnt/workspace/zengshuang.zs/env/starVLA/bin/python
 
 export DEBUG=1

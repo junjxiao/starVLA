@@ -8,7 +8,8 @@ __pycache__/
 
 # C extensions
 *.so
-
+outputs/
+training_output/
 # Distribution / packaging
 .Python
 build/
