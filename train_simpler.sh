@@ -5,19 +5,19 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 
 args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --config_yaml ./examples/SimplerEnv/train_files/starvla_cotrain_oxe.yaml \
-      --framework.name QwenGR00T \
+      --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/workspace/zengshuang.zs/data/oxe \
       --datasets.vla_data.data_mix bridge \
       --datasets.vla_data.per_device_batch_size 32 \
       --trainer.vla_data.video_backend torchvision_av \
-      --trainer.freeze_modules '' \
+      --trainer.freeze_modules 'spatial_model' \
       --trainer.max_train_steps 50000 \
       --trainer.save_interval 2000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
-      --run_root_dir /mnt/workspace/zengshuang.zs/output/bridge \
-      --run_id 1216_bridge_Qwen3vlGR00T \
+      --run_root_dir /mnt/workspace/junjin/code/starVLA/training_output/simpler_vggt_concat \
+      --run_id 1216_simpler_Qwen3vlGR00T_vggt_concat \
       "
 
 # 打印将要传递的参数，方便调试
@@ -35,7 +35,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --worker_count=64 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
-                  --job_name="starVLA" \
+                  --job_name="starVLA_simpler_vggt_concat" \
                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1 \
                   --env="${ENVS}"
