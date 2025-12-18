@@ -164,7 +164,7 @@ class LeRobotSingleDataset(Dataset):
         self.curr_traj_data = None
         self.curr_traj_id = None
 
-        self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
+        self._trajectory_ids, self._trajectory_lengths, self._trajectory_tasks = self._get_trajectories()
         self._modality_keys = self._get_modality_keys()
         self._delta_indices = self._get_delta_indices()
         self._all_steps = self._get_all_steps()
@@ -381,10 +381,12 @@ class LeRobotSingleDataset(Dataset):
             episode_metadata = [json.loads(line) for line in f]
         trajectory_ids = []
         trajectory_lengths = []
+        trajectory_tasks = []
         for episode in episode_metadata:
             trajectory_ids.append(episode["episode_index"])
             trajectory_lengths.append(episode["length"])
-        return np.array(trajectory_ids), np.array(trajectory_lengths)
+            trajectory_tasks.append(episode['tasks'])
+        return np.array(trajectory_ids), np.array(trajectory_lengths), trajectory_tasks
 
     def _get_all_steps(self) -> list[tuple[int, int]]:
         """Get the trajectory IDs and base indices for all steps in the dataset.

@@ -299,6 +299,22 @@ class Qwen_GR00TSpatial(baseframework):
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
 
+        # step 2: encode spatial feature
+        with torch.no_grad():
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16):     
+                if self.spatial_type == "vggt":    
+                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
+                    spatial_tokens = self.spatial_projector(spatial_tokens)
+                elif self.spatial_type == "depthanything3":
+                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                    Bs, S, N, C = feats[0][0].shape
+                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
+        # step 3: fuse spatial tokens and qwen tokens
+        last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         
         # Step 4: Action Expert Forward
