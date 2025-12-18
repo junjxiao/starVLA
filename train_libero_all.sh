@@ -17,7 +17,7 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.save_interval 1000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
-      --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
+      --run_root_dir /mnt/workspace/junjin/code/starvla/checkpoints \
       --run_id 1218_liberoall_Qwen3vlGR00T_vggt_concat \
       "
 
