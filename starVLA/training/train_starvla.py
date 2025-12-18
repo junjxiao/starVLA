@@ -190,6 +190,12 @@ class VLATrainer(TrainerUtils):
     def _init_wandb(self):
         """initialize Weights & Biases"""
         if self.accelerator.is_main_process:
+            # 确保 output_dir 存在
+            print(self.config.output_dir)
+            os.makedirs(self.config.output_dir, exist_ok=True)
+            # 确保 wandb 子目录存在（虽然 wandb 可能自己建，但保险起见）
+            wandb_dir = os.path.join(self.config.output_dir, "wandb")
+            os.makedirs(wandb_dir, exist_ok=True)
             wandb.init(
                 name=self.config.run_id,
                 dir=os.path.join(self.config.output_dir, "wandb"),
