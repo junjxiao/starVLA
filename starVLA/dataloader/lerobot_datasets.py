@@ -101,7 +101,7 @@ if __name__ == "__main__":
     import debugpy
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_yaml", type=str, default="./starVLA/config/training/starvla_cotrain_behavior.yaml", help="Path to YAML config")
+    parser.add_argument("--config_yaml", type=str, default="/mnt/workspace/junjin/code/starVLA/examples/LIBERO/train_files/starvla_cotrain_libero.yaml", help="Path to YAML config")
     args, clipargs = parser.parse_known_args()
 
     # debugpy.listen(("0.0.0.0", 10092))
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(
         dataset,
         batch_size=2,
-        num_workers=1, # For Debug
+        num_workers=0, # For Debug
         collate_fn=collate_fn,
     )
 

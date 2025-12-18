@@ -760,6 +760,8 @@ class LeRobotSingleDataset(Dataset):
             }
         """
         data = {}
+        # import ipdb
+        # ipdb.set_trace()
         # Get the data for all modalities # just for action base data
         self.curr_traj_data = self.get_trajectory_data(trajectory_id)
         # TODO @JinhuiYE The logic below is poorly implemented. Data reading should be directly based on curr_traj_data.

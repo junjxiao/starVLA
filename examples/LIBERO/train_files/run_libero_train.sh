@@ -11,13 +11,13 @@
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T
-freeze_module_list="qwen_vl_interface.model.model,spatial_model"
+freeze_module_list="spatial_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/nas-data-3/yangyandan/libero
 data_mix=libero_10
-run_root_dir=/mnt/workspace/junjin/code/starVLA/training_output/test_libero
-run_id=1216_QwenGR00TSpatial_libero10
+run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
+run_id=1218_test_libero10
 # === End of environment variable configuration ===
 ###########################################################################################
 

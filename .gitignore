@@ -10,6 +10,7 @@ __pycache__/
 *.so
 outputs/
 training_output/
+checkpoints/
 # Distribution / packaging
 .Python
 build/

@@ -49,6 +49,7 @@ framework:
     hidden_dim: 2048
     output_dim: 2560
   reduce_in_full_precision: true
+  use_mv_images: true
 
 
 datasets:
