@@ -14,10 +14,10 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model' \
       --trainer.max_train_steps 10000 \
-      --trainer.save_interval 5000 \
+      --trainer.save_interval 1000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
-      --run_root_dir /mnt/workspace/junjin/code/starvla/checkpoints \
+      --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
       --run_id 1218_libero10_Qwen3vlGR00T_vggt_concat_use_mv \
       "
 
