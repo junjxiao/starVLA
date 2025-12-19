@@ -11,7 +11,7 @@
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T
-freeze_module_list="spatial_model"
+freeze_module_list="qwen_vl_interface.model,spatial_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/nas-data-3/yangyandan/libero
@@ -60,7 +60,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1 \
+CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
   --config_yaml ${config_yaml} \
@@ -68,13 +68,13 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1 \
   --framework.qwenvl.base_vlm ${base_vlm} \
   --datasets.vla_data.data_root_dir ${libero_data_root}\
   --datasets.vla_data.data_mix ${data_mix} \
-  --datasets.vla_data.per_device_batch_size 2 \
+  --datasets.vla_data.per_device_batch_size 1 \
   --trainer.vla_data.video_backend torchvision_av \
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 100000 \
   --trainer.save_interval 10000 \
   --trainer.logging_frequency 100 \
-  --trainer.eval_interval 1000 \
+  --trainer.eval_interval 1 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \

@@ -309,8 +309,10 @@ class Qwen_GR00TSpatial(baseframework):
                     denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
                     feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
                     Bs, S, N, C = feats[0][0].shape
-                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
+                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
         # step 3: fuse spatial tokens and qwen tokens
+        last_hidden = last_hidden.to(torch.float32)
+        spatial_tokens = spatial_tokens.to(torch.float32)
         if self.config.framework.fuser.type == 'concat':
             last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
         elif self.config.framework.fuser.type == 'cross_attention':
