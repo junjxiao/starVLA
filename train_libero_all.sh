@@ -22,7 +22,7 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --wandb_entity junjin \
       --wandb_project 1218_liberoall_Qwen3vlGR00T_vggt_concat\
       --is_resume true \
-      resume_step 6000 \
+      --resume_step 6000 \
       "
 
 # 打印将要传递的参数，方便调试
