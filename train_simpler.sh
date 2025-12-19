@@ -18,6 +18,8 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.eval_interval 1000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/training_output/simpler_vggt_concat \
       --run_id 1216_simpler_Qwen3vlGR00T_vggt_concat \
+      --wandb_entity junjin \
+      --wandb_project 1218_liberoall_Qwen3vlGR00T_vggt_concat\
       "
 
 # 打印将要传递的参数，方便调试

@@ -19,6 +19,8 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.eval_interval 1000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
       --run_id 1218_libero10_Qwen3vlGR00T_vggt_concat_use_mv \
+      --wandb_entity junjin \
+      --wandb_project 1218_liberoall_Qwen3vlGR00T_vggt_concat\
       "
 
 # 打印将要传递的参数，方便调试

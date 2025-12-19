@@ -314,7 +314,6 @@ class Qwen_GR00TSpatial(baseframework):
                     spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
         # step 3: fuse spatial tokens and qwen tokens
         last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         
         # Step 4: Action Expert Forward
