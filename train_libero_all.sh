@@ -18,12 +18,13 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
-      --run_id 1218_liberoall_Qwen3vlGR00T_vggt_concat \
+      --run_id 1219_liberoall_Qwen3vlGR00T_vggt_cross \
       --wandb_entity junjin \
-      --wandb_project 1218_liberoall_Qwen3vlGR00T_vggt_concat\
-      --is_resume true \
-      --resume_step 6000 \
+      --wandb_project 1219_liberoall_Qwen3vlGR00T_vggt_cross\
+      --trainer.is_resume false \
+      --framework.fuser.type cross_attention \
       "
+      # --trainer.resume_from_checkpoint null \
 
 # 打印将要传递的参数，方便调试
 echo "即将传递给训练脚本的参数："

@@ -43,6 +43,76 @@ from starVLA.training.trainer_utils.trainer_tools import resize_images
 from starVLA.model.tools import FRAMEWORK_REGISTRY
 from vggt.models.vggt import VGGT
 
+class CrossAttention(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        d_hidden: int,
+        nhead: int = 8,
+        dropout: float = 0.0,
+        kv_dim: int = 2048
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.d_hidden = d_hidden if d_hidden is not None else d_model
+        self.nhead = nhead
+        self.head_dim = self.d_hidden // nhead
+        assert self.d_hidden % nhead == 0, "d_hidden must be divisible by nhead"
+
+        # Projections
+        self.q_proj = nn.Linear(d_model, self.d_hidden)
+        self.k_proj = nn.Linear(kv_dim, self.d_hidden)
+        self.v_proj = nn.Linear(kv_dim, self.d_hidden)
+        self.out_proj = nn.Linear(self.d_hidden, d_model)
+
+        self.dropout_attn = nn.Dropout(dropout)
+        self.dropout_out = nn.Dropout(dropout)
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, image_feature: torch.Tensor, spatial_feature: torch.Tensor):
+        """
+        Args:
+            image_feature: (B, N_img, d_model) — Query
+            vggt_feature:   (B, N_vggt, kv_dim) — Key and Value
+
+        Returns:
+            fused_image_feature: (B, N_img, d_model)
+        """
+        B, N_img, _ = image_feature.shape
+        _, N_spatial, _ = spatial_feature.shape
+
+        # Project to d_hidden
+        q = self.q_proj(image_feature)   # (B, N_img, d_hidden)
+        k = self.k_proj(spatial_feature)     # (B, N_vggt, d_hidden)
+        v = self.v_proj(spatial_feature)     # (B, N_vggt, d_hidden)
+
+        # Reshape for multi-head: (B, N, d_hidden) -> (B, N, nhead, head_dim) -> (B, nhead, N, head_dim)
+        q = q.view(B, N_img, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_img, head_dim)
+        k = k.view(B, N_spatial, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_vggt, head_dim)
+        v = v.view(B, N_spatial, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_vggt, head_dim)
+
+        # Scaled Dot-Product Attention
+        scale = self.head_dim ** -0.5
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) * scale  # (B, nhead, N_img, N_vggt)
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = self.dropout_attn(attn_weights)
+
+        # Weighted sum over values
+        attn_output = torch.matmul(attn_weights, v)  # (B, nhead, N_img, head_dim)
+
+        # Concatenate heads and project back
+        attn_output = attn_output.transpose(1, 2).contiguous()  # (B, N_img, nhead, head_dim)
+        attn_output = attn_output.view(B, N_img, self.d_hidden)  # (B, N_img, d_hidden)
+
+        # Final projection to d_model
+        output = self.out_proj(attn_output)  # (B, N_img, d_model)
+        output = self.dropout_out(output)
+
+        # Residual connection + LayerNorm
+        output = self.norm(image_feature + output)
+
+        return output
+
 def preprocess_images(image_list, target_size, mode='crop'): #  [B，[PLT]]
     batch_images = []
     shapes = set()
@@ -174,6 +244,15 @@ class Qwen_GR00TSpatial(baseframework):
         self.spatial_model = self.get_spatial_model(config)
         self.spatial_projector = self.get_spatial_projector(config)
 
+        if getattr(self.config.framework, 'fuser', None) is None:
+            self.config.framework.fuser = {'type':'concat'}
+        print(self.config.framework.fuser.type)
+        if self.config.framework.fuser.type == 'cross_attention':
+            self.fuser = self.get_fuser(config)
+
+    def get_fuser(self, config):
+        model = CrossAttention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
+        return model
         
     def get_spatial_model(self, config):
         spatial_model_cfg = config.framework.spatial_model
@@ -232,7 +311,12 @@ class Qwen_GR00TSpatial(baseframework):
                     Bs, S, N, C = feats[0][0].shape
                     spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
         # step 3: fuse spatial tokens and qwen tokens
-        last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+        if self.config.framework.fuser.type == 'concat':
+            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+        elif self.config.framework.fuser.type == 'cross_attention':
+            last_hidden = self.fuser(last_hidden, spatial_tokens)
+        else:
+            raise NotImplementedError
 
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
@@ -313,7 +397,13 @@ class Qwen_GR00TSpatial(baseframework):
                     Bs, S, N, C = feats[0][0].shape
                     spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
         # step 3: fuse spatial tokens and qwen tokens
-        last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+        if self.config.framework.fuser.type == 'concat':
+            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+        elif self.config.framework.fuser.type == 'cross_attention':
+            last_hidden = self.fuser(last_hidden, spatial_tokens)
+        else:
+            raise NotImplementedError
+
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         
         # Step 4: Action Expert Forward

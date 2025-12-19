@@ -113,6 +113,7 @@ trainer:
 
   # parameters to be determined
   is_resume: false
+  resume_from_checkpoint: null
   resume_epoch: null
   resume_step: null
   enable_gradient_checkpointing: true

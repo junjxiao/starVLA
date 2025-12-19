@@ -48,6 +48,8 @@ framework:
   spatial_projector:
     hidden_dim: 2048
     output_dim: 2560
+  fuser:
+    type: concat
   reduce_in_full_precision: true
   use_mv_images: true
 
@@ -112,6 +114,7 @@ trainer:
 
   # parameters to be determined
   is_resume: false
+  resume_from_checkpoint: null
   resume_epoch: null
   resume_step: null
   enable_gradient_checkpointing: true

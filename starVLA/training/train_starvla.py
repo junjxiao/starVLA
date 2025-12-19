@@ -209,12 +209,12 @@ class VLATrainer(TrainerUtils):
         self.checkpoint_dir = os.path.join(self.config.output_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        pretrained_checkpoint = getattr(self.config.trainer, "pretrained_checkpoint", None)
+        resume_from_checkpoint = getattr(self.config.trainer, "resume_from_checkpoint", None)
         is_resume = getattr(self.config.trainer, "is_resume", False)
 
         # resume training state
-        if pretrained_checkpoint and is_resume:
-            self._load_checkpoint(self.config.resume_from_checkpoint)
+        if resume_from_checkpoint and is_resume:
+            self._load_checkpoint(self.config.trainer.resume_from_checkpoint)
 
     def _load_checkpoint(self, checkpoint_path):
         """load checkpoint"""

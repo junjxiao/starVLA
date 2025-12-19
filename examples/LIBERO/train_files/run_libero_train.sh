@@ -17,12 +17,11 @@ config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/nas-data-3/yangyandan/libero
 data_mix=libero_10
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
-run_id=1218_test_libero10
+run_id=test_libero10
 # === End of environment variable configuration ===
 ###########################################################################################
 
 
-export WANDB_MODE=disabled
 export WANDB_MODE=offline
 export WANDB_DISABLED=true
 export CUDA_HOME=/usr/local/cuda-12
@@ -78,6 +77,8 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1 \
   --trainer.eval_interval 1000 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
+  --framework.fuser.type 'cross_attention' \
+
   # --is_debug True
 
 
