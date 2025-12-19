@@ -399,6 +399,8 @@ class Qwen_GR00TSpatial(baseframework):
                     Bs, S, N, C = feats[0][0].shape
                     spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
         # step 3: fuse spatial tokens and qwen tokens
+        last_hidden = last_hidden.to(torch.float32)
+        spatial_tokens = spatial_tokens.to(torch.float32)
         if self.config.framework.fuser.type == 'concat':
             last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
         elif self.config.framework.fuser.type == 'cross_attention':
