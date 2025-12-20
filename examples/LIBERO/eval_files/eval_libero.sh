@@ -4,16 +4,16 @@
 # === Please modify the following paths according to your environment ===
 export LIBERO_HOME=/mnt/workspace/zengshuang.zs/LIBERO
 export LIBERO_CONFIG_PATH=${LIBERO_HOME}/libero
-export LIBERO_Python=/mnt/workspace/zengshuang.zs/env/libero/bin/python
-
+export LIBERO_Python=/mnt/workspace/junjin/conda/libero/bin/python
+export MUJOCO_GL=osmesa
 export PYTHONPATH=$PYTHONPATH:${LIBERO_HOME} # let eval_libero find the LIBERO tools
 export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools from main repo
 
 host="127.0.0.1"
-base_port=10010
+base_port=10011
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1212_libero4in1_QwenGR00T/checkpoints/steps_10000_pytorch_model.pt
-output_dir=/mnt/workspace/zengshuang.zs/eval/libero/1212_libero4in1_QwenGR00T_10000
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_20000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/libero_Qwen3vlGR00T_vggt_cross_step20000
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
 ###########################################################################################

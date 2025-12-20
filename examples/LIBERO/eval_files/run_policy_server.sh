@@ -1,8 +1,8 @@
 #!/bin/bash
 
-your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1212_libero4in1_QwenGR00T/checkpoints/steps_10000_pytorch_model.pt
-base_port=10010
-export star_vla_python=/mnt/workspace/zengshuang.zs/env/starVLA/bin/python
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_20000_pytorch_model.pt
+base_port=10011
+export star_vla_python=/mnt/workspace/junjin/conda/starVLA/bin/python
 
 export DEBUG=1
 

@@ -6,13 +6,13 @@ export SimplerEnv_PATH=/mnt/workspace/zengshuang.zs/SimplerEnv
 export PYTHONPATH=/mnt/workspace/junjin/conda/simpler_env:${PYTHONPATH}
 export PYTHONPATH=$(pwd):${PYTHONPATH}
 
-MODEL_PATH=/mnt/workspace/junjin/code/starVLA/checkpoints/1216_simpler_Qwen3vlGR00T_vggt_concat/checkpoints/steps_24000_pytorch_model.pt #/mnt/workspace/zengshuang.zs/checkpoints/Qwen-GR00T-Bridge/checkpoints/steps_45000_pytorch_model.pt
-logging_dir=/mnt/workspace/junjin/code/starVLA/outputs/simpler/simpler_Qwen3vlGR00T_vggt_concat_step24000
+MODEL_PATH=/mnt/workspace/junjin/code/starVLA/checkpoints/1216_simpler_Qwen3vlGR00T_vggt_concat/checkpoints/steps_28000_pytorch_model.pt #/mnt/workspace/zengshuang.zs/checkpoints/Qwen-GR00T-Bridge/checkpoints/steps_45000_pytorch_model.pt
+logging_dir=/mnt/workspace/junjin/code/starVLA/outputs/simpler/simpler_Qwen3vlGR00T_vggt_concat_step28000
 ckpt_path=${MODEL_PATH}
 TSET_NUM=3
 # export DEBUG=1
 
-port=56705
+port=56706
 
 # IFS=',' read -r -a CUDA_DEVICES <<< "$CUDA_VISIBLE_DEVICES"
 # NUM_GPUS=${#CUDA_DEVICES[@]} 
