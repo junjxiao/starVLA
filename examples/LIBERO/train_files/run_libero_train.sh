@@ -59,7 +59,8 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
+CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
+  --master_port=29501\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
   --config_yaml ${config_yaml} \
@@ -76,7 +77,7 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
   --trainer.eval_interval 1 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --framework.fuser.type 'mlayer' \
+  --framework.fuser.type 'cross_attention' \
 
   # --is_debug True
 

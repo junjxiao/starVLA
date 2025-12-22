@@ -317,16 +317,16 @@ class Qwen_GR00TSpatial(baseframework):
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
             spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = last_hidden.to(torch.float32)
-            spatial_tokens = spatial_tokens.to(torch.float32)
+            # last_hidden = last_hidden.to(torch.float32)
+            # spatial_tokens = spatial_tokens.to(torch.float32)
             last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
         elif self.config.framework.fuser.type == 'cross_attention':
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
             spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = last_hidden.to(torch.float32)
-            spatial_tokens = spatial_tokens.to(torch.float32)
+            # last_hidden = last_hidden.to(torch.float32)
+            # spatial_tokens = spatial_tokens.to(torch.float32)
             last_hidden = self.fuser(last_hidden, spatial_tokens)
         elif self.config.framework.fuser.type == 'mlayer':
             num_layers = self.config.framework.layer_qformer.num_layers
@@ -428,7 +428,7 @@ class Qwen_GR00TSpatial(baseframework):
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
             if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
+                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
             else:
                 raise NotImplementedError
             spatial_tokens = self.spatial_projector(spatial_tokens)
@@ -439,7 +439,7 @@ class Qwen_GR00TSpatial(baseframework):
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
             if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
+                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
             else:
                 raise NotImplementedError
             spatial_tokens = self.spatial_projector(spatial_tokens)
