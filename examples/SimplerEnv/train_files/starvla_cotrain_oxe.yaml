@@ -16,7 +16,7 @@ framework:
     dino_backbone: dinov2_vits14
 
   action_model:
-    action_model_type: DiT-L
+    action_model_type: DiT-B
     hidden_size: 1024     # 和 DiT 最后的 projection 对应，用于 ActionDecoder
     add_pos_embed: True
     max_seq_len: 1024

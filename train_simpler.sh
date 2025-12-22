@@ -6,7 +6,7 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --config_yaml ./examples/SimplerEnv/train_files/starvla_cotrain_oxe.yaml \
       --framework.name QwenGR00TSpatial \
-      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
+      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
       --datasets.vla_data.data_root_dir /mnt/workspace/zengshuang.zs/data/oxe \
       --datasets.vla_data.data_mix bridge \
       --datasets.vla_data.per_device_batch_size 32 \
