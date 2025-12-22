@@ -49,6 +49,12 @@ framework:
     output_dim: 2560
   fuser:
     type: concat
+  use_mv_images: true
+  layer_qformer:
+    num_layers: 4
+    num_query_tokens: 128
+    input_dim: 2560
+    ouptput_dim: 2560
 
 
 

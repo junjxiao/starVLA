@@ -49,9 +49,14 @@ framework:
     hidden_dim: 2048
     output_dim: 2560
   fuser:
-    type: concat
+    type: concat #cross_attention or mlayer
   reduce_in_full_precision: true
-  use_mv_images: true
+  use_mv_images: false
+  layer_qformer:
+    num_layers: 4
+    num_query_tokens: 128
+    input_dim: 2560
+    ouptput_dim: 2560
 
 
 datasets:

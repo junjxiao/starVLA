@@ -18,11 +18,11 @@ args="--deepspeed starVLA/config/deepseeds/zero0.json \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
-      --run_id 1219_liberoall_Qwen3vlGR00T_vggt_cross \
+      --run_id 1222_liberoall_Qwen3vlGR00T_vggt_mlayer \
       --wandb_entity junjin \
-      --wandb_project 1219_liberoall_Qwen3vlGR00T_vggt_cross\
+      --wandb_project 1222_liberoall_Qwen3vlGR00T_vggt_mlayer\
       --trainer.is_resume false \
-      --framework.fuser.type cross_attention \
+      --framework.fuser.type mlayer \
       "
       # --trainer.resume_from_checkpoint null \
 
@@ -41,7 +41,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --worker_count=32 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
-                  --job_name="1219_liberoall_Qwen3vlGR00T_vggt_cross" \
+                  --job_name="1222_liberoall_Qwen3vlGR00T_vggt_mlayer" \
                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1 \
                   --env="${ENVS}"

@@ -23,7 +23,6 @@ run_id=test_libero10
 
 
 export WANDB_MODE=offline
-export WANDB_DISABLED=true
 export CUDA_HOME=/usr/local/cuda-12
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export PATH=$CUDA_HOME/bin:$PATH
@@ -77,7 +76,7 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
   --trainer.eval_interval 1 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --framework.fuser.type 'cross_attention' \
+  --framework.fuser.type 'mlayer' \
 
   # --is_debug True
 
