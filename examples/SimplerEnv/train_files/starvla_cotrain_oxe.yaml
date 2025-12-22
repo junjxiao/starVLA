@@ -47,6 +47,8 @@ framework:
   spatial_projector:
     hidden_dim: 2048
     output_dim: 2560
+  fuser:
+    type: concat
 
 
 
