@@ -39,7 +39,11 @@ from starVLA.model.framework import build_framework
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils
 from starVLA.training.trainer_utils.trainer_tools import build_param_lr_groups
 
-deepspeed_plugin = DeepSpeedPlugin()
+ds_config_file = os.environ.get("DEEPSPEED_CONFIG_FILE", None)
+if ds_config_file is not None:
+    deepspeed_plugin = DeepSpeedPlugin(hf_ds_config=ds_config_file)
+else:
+    deepspeed_plugin = DeepSpeedPlugin()
 accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
 accelerator.print(accelerator.state)
 
