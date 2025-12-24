@@ -1,23 +1,24 @@
 #!/bin/bash
+# DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
+ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,WANDB_MODE=disabled,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-
-args="--deepspeed starVLA/config/deepseeds/zero0.json \
-      --config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
+args="--config_yaml ./examples/SimplerEnv/train_files/starvla_cotrain_oxe.yaml \
       --framework.name QwenGR00T \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
-      --datasets.vla_data.data_root_dir /mnt/nas-data-3/yangyandan/libero \
-      --datasets.vla_data.data_mix libero_all \
-      --datasets.vla_data.per_device_batch_size 2 \
+      --datasets.vla_data.data_root_dir /mnt/workspace/zengshuang.zs/data/oxe \
+      --datasets.vla_data.data_mix bridge \
+      --datasets.vla_data.per_device_batch_size 32 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules '' \
-      --trainer.max_train_steps 30000 \
-      --trainer.save_interval 5000 \
+      --trainer.max_train_steps 20000 \
+      --trainer.save_interval 2000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
-      --run_root_dir /mnt/workspace/zengshuang.zs/output/libero_all \
-      --run_id 1214_libero4in1_QwenGR00T \
+      --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
+      --run_id 1224_simpler_Qwen3vlGR00T_orig \
+      --wandb_entity junjin \
+      --wandb_project 1224_simpler_Qwen3vlGR00T_orig\
       "
 
 # 打印将要传递的参数，方便调试
@@ -32,10 +33,10 @@ echo ""
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
-                  --worker_count=64 \
+                  --worker_count=32 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
-                  --job_name="starVLA" \
+                  --job_name="1224_simpler_Qwen3vlGR00T_orig" \
                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1 \
                   --env="${ENVS}"

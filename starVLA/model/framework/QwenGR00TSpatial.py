@@ -315,18 +315,24 @@ class Qwen_GR00TSpatial(baseframework):
         if self.config.framework.fuser.type == 'concat':
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
+            if self.spatial_type == "vggt":
+                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+            else:
+                raise NotImplementedError
+            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            # last_hidden = last_hidden.to(torch.float32)
-            # spatial_tokens = spatial_tokens.to(torch.float32)
             last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
         elif self.config.framework.fuser.type == 'cross_attention':
             # last_hidden_state: [B, seq_len, H]
             last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:].to(torch.bfloat16)
+            if self.spatial_type == "vggt":
+                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+            else:
+                raise NotImplementedError
+
+            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            # last_hidden = last_hidden.to(torch.float32)
-            # spatial_tokens = spatial_tokens.to(torch.float32)
+            
             last_hidden = self.fuser(last_hidden, spatial_tokens)
         elif self.config.framework.fuser.type == 'mlayer':
             num_layers = self.config.framework.layer_qformer.num_layers
@@ -336,6 +342,7 @@ class Qwen_GR00TSpatial(baseframework):
             spatial_interval = len(aggregated_tokens_list) // num_layers
             spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
             spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+            spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
             spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
 
             cat_conditions = []
@@ -431,9 +438,8 @@ class Qwen_GR00TSpatial(baseframework):
                 spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
             else:
                 raise NotImplementedError
+            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = last_hidden.to(torch.float32)
-            spatial_tokens = spatial_tokens.to(torch.float32)
             last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
         elif self.config.framework.fuser.type == 'cross_attention':
             # last_hidden_state: [B, seq_len, H]
@@ -442,9 +448,10 @@ class Qwen_GR00TSpatial(baseframework):
                 spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
             else:
                 raise NotImplementedError
+
+            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
             spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = last_hidden.to(torch.float32)
-            spatial_tokens = spatial_tokens.to(torch.float32)
+            
             last_hidden = self.fuser(last_hidden, spatial_tokens)
         elif self.config.framework.fuser.type == 'mlayer':
             # 提取qwen和vggt的中间特征，最后一层逼包含，其余平均
@@ -455,6 +462,7 @@ class Qwen_GR00TSpatial(baseframework):
             spatial_interval = len(aggregated_tokens_list) // num_layers
             spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
             spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+            spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
             spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
 
             cat_conditions = []
