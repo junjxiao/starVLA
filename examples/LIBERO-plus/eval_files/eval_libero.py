@@ -99,7 +99,8 @@ def eval_libero(args: Args) -> None:
     ID2CATEGORY = {}
     for item in TASK_MAPPING:
         category = item["category"]
-        ID2CATEGORY[item['id']] = category
+        item_name = item["name"]
+        ID2CATEGORY[item['id']] = (category, item_name)
         if category not in disturb_res:
             disturb_res[category] = {"total_count": 0, "success_count": 0}
         disturb_res[category]["total_count"] += 1
@@ -184,8 +185,7 @@ def eval_libero(args: Args) -> None:
                     "image": [observation["observation.primary"][0], observation["observation.wrist_image"][0]],
                     "lang": observation["instruction"][0],
                 }
-
-                
+              
                 start_time = time.time()
                 
                 # response = client_model.step(example=example_dict) 
@@ -221,7 +221,7 @@ def eval_libero(args: Args) -> None:
                 if done:
                     task_successes += 1
                     total_successes += 1
-                    disturb_res[ID2CATEGORY[task_id+1]]['success_count'] += 1
+                    disturb_res[ID2CATEGORY[task_id+1][0]]['success_count'] += 1
                     break
                 t += 1
                 step += 1
@@ -232,11 +232,12 @@ def eval_libero(args: Args) -> None:
             # Save a replay video of the episode
             suffix = "success" if done else "failure"
             task_segment = task_description.replace(" ", "_")
+
             imageio.mimwrite(
                 pathlib.Path(args.video_out_path)
-                / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4",
+                / f"rollout_{ID2CATEGORY[task_id+1][1]}_episode{episode_idx}_{suffix}.mp4",
                 [np.asarray(x) for x in replay_images],
-                fps=10,
+                fps=25,
             )
             
             full_actions = np.stack(full_actions)

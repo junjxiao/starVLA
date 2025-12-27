@@ -26,8 +26,9 @@ omegaconf
 numpy==1.26.4
 wandb
 rich
-diffusers
+# diffusers
 timm
 tyro
 ipdb
 -e /mnt/nas-data-5/junjin/code/vggt
+/mnt/workspace/junjin/code/diffusers
