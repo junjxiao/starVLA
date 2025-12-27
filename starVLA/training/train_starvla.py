@@ -227,7 +227,21 @@ class VLATrainer(TrainerUtils):
             checkpoint_path = os.path.join(self.checkpoint_dir, f"steps_{self.completed_steps}")
             # save model state
             state_dict = self.accelerator.get_state_dict(self.model)
-            torch.save(state_dict, checkpoint_path + "_pytorch_model.pt")
+
+            # 处理要排除的模块列表
+            excluded_modules = []
+            if self.config and hasattr(self.config.trainer, "freeze_modules"):
+                # 将字符串按逗号分割，并去除空格
+                excluded_modules = [module.strip() for module in self.config.trainer.freeze_modules.split(',') if module.strip()]
+            
+            # 过滤掉所有预训练模块的参数
+            filtered_state_dict = state_dict
+            if excluded_modules:
+                filtered_state_dict = {
+                    k: v for k, v in state_dict.items()
+                    if not any(k.startswith(module + ".") for module in excluded_modules)
+                }
+            torch.save(filtered_state_dict, checkpoint_path + "_pytorch_model.pt")
 
             # save training metadata
             summary_data = {
@@ -412,7 +426,20 @@ class VLATrainer(TrainerUtils):
             final_checkpoint = os.path.join(self.config.output_dir, "final_model")
             os.makedirs(final_checkpoint, exist_ok=True)
             state_dict = self.accelerator.get_state_dict(self.model)
-            torch.save(state_dict, os.path.join(final_checkpoint, "pytorch_model.pt"))
+            # 处理要排除的模块列表
+            excluded_modules = []
+            if self.config and hasattr(self.config.trainer, "freeze_modules"):
+                # 将字符串按逗号分割，并去除空格
+                excluded_modules = [module.strip() for module in self.config.trainer.freeze_modules.split(',') if module.strip()]
+            
+            # 过滤掉所有预训练模块的参数
+            filtered_state_dict = state_dict
+            if excluded_modules:
+                filtered_state_dict = {
+                    k: v for k, v in state_dict.items()
+                    if not any(k.startswith(module + ".") for module in excluded_modules)
+                }
+            torch.save(filtered_state_dict, os.path.join(final_checkpoint, "pytorch_model.pt"))
             logger.info(f"Training complete. Final model saved at {final_checkpoint}")
 
         # close W&B

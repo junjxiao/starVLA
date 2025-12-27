@@ -43,7 +43,7 @@ framework:
       output_dim: 1024
       positional_embeddings: null
   spatial_model:
-    model_name_or_path: /mnt/nas-data-5/junjin/pretrained_models/vggt
+    model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/vggt
     output_dim: 2048
   spatial_projector:
     hidden_dim: 2048
@@ -57,6 +57,8 @@ framework:
     num_query_tokens: 128
     input_dim: 2560
     ouptput_dim: 2560
+  qwen_image_edit_model:
+    model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
 
 
 datasets:

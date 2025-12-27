@@ -11,7 +11,7 @@
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T
-freeze_module_list="qwen_vl_interface.model,spatial_model"
+freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/nas-data-3/yangyandan/libero

@@ -55,6 +55,8 @@ framework:
     num_query_tokens: 128
     input_dim: 2560
     ouptput_dim: 2560
+  qwen_image_edit_model:
+    model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
 
 
 

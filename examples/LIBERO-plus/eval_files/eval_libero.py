@@ -45,6 +45,7 @@ class Args:
     # Utils
     #################################################################################################################
     video_out_path: str = "experiments/libero/logs"  # Path to save videos
+    log_path: str = "experiments/libero/logs"
 
     seed: int = 7  # Random Seed (for reproducibility)
 
@@ -91,12 +92,23 @@ def eval_libero(args: Args) -> None:
         image_size=args.resize_size,
     )
 
+    disturb_res = {}
+    LIBERO_HOME = os.environ.get('LIBERO_HOME', '/mnt/workspace/junjin/code/LIBERO-plus')
+    with open(os.path.join(LIBERO_HOME,'libero/libero/benchmark/task_classification.json')) as f:
+        TASK_MAPPING = json.load(f)[args.task_suite_name]
+    ID2CATEGORY = {}
+    for item in TASK_MAPPING:
+        category = item["category"]
+        ID2CATEGORY[item['id']] = category
+        if category not in disturb_res:
+            disturb_res[category] = {"total_count": 0, "success_count": 0}
+        disturb_res[category]["total_count"] += 1
 
     # Start evaluation
+
     total_episodes, total_successes = 0, 0
-    import ipdb
-    ipdb.set_trace()
     for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
+        
         # Get task
         task = task_suite.get_task(task_id)
 
@@ -109,6 +121,7 @@ def eval_libero(args: Args) -> None:
         # Start episodes
         task_episodes, task_successes = 0, 0
         for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
+            
             logging.info(f"\nTask: {task_description}")
 
             # Reset environment
@@ -129,6 +142,7 @@ def eval_libero(args: Args) -> None:
             # full_actions = np.load("./debug/action.npy")
             
             while t < max_steps + args.num_steps_wait:
+                
                 # try:
                 # IMPORTANT: Do nothing for the first few timesteps because the simulator drops objects
                 # and we need to wait for them to fall
@@ -207,6 +221,7 @@ def eval_libero(args: Args) -> None:
                 if done:
                     task_successes += 1
                     total_successes += 1
+                    disturb_res[ID2CATEGORY[task_id+1]]['success_count'] += 1
                     break
                 t += 1
                 step += 1
@@ -242,7 +257,8 @@ def eval_libero(args: Args) -> None:
         logging.info(
             f"Current total success rate: {float(total_successes) / float(total_episodes)}"
         )
-
+    with open(os.path.join(args.log_path,f'{args.task_suite_name}.json'), 'w', encoding='utf-8') as f:
+        json.dump(disturb_res, f)
     logging.info(
         f"Total success rate: {float(total_successes) / float(total_episodes)}"
     )
@@ -258,7 +274,7 @@ def _get_libero_env(task, resolution, seed):
         / task.bddl_file
     )
     env_args = {
-        "bddl_file_name": task_bddl_file,
+        "bddl_file_name": str(task_bddl_file),
         "camera_heights": resolution,
         "camera_widths": resolution,
     }
