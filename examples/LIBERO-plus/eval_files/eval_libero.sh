@@ -13,8 +13,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 host="127.0.0.1"
 
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1227_libero4in1_QwenGR00T_sft/checkpoints/steps_20000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/1227_libero4in1_QwenGR00T_sft_step20000
+your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1227_libero4in1_QwenGR00T_sft/checkpoints/steps_30000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/1227_libero4in1_QwenGR00T_sft_step30000
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
 ###########################################################################################
@@ -24,7 +24,7 @@ folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 LOG_DIR="${output_dir}/logs/$(date +"%Y%m%d_%H%M%S")"
 mkdir -p ${LOG_DIR}
 
-base_port=9880
+base_port=9882
 task_suite_name=libero_goal
 num_trials_per_task=1
 video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
@@ -44,7 +44,7 @@ CUDA_VISIBLE_DEVICES=2 ${LIBERO_Python} ./examples/LIBERO-plus/eval_files/eval_l
 ##########  eval libero_spatial ##########
 
 # set it in background to run multiple evals in parallel with &
-base_port=9881
+base_port=9883
 task_suite_name=libero_spatial
 num_trials_per_task=1
 video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
@@ -62,7 +62,7 @@ CUDA_VISIBLE_DEVICES=2 ${LIBERO_Python} ./examples/LIBERO-plus/eval_files/eval_l
 
 
 ##########  eval libero_object ##########
-base_port=9880
+base_port=9882
 task_suite_name=libero_object
 num_trials_per_task=1
 video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
@@ -81,7 +81,7 @@ CUDA_VISIBLE_DEVICES=2 ${LIBERO_Python} ./examples/LIBERO-plus/eval_files/eval_l
 
 
 ##########  eval libero_long ##########
-base_port=9881
+base_port=9883
 task_suite_name=libero_10
 num_trials_per_task=1
 video_out_path="${output_dir}/${task_suite_name}/${folder_name}"

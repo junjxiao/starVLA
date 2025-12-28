@@ -31,4 +31,4 @@ timm
 tyro
 ipdb
 -e /mnt/nas-data-5/junjin/code/vggt
-/mnt/workspace/junjin/code/diffusers
+-e /mnt/workspace/junjin/code/diffusers
