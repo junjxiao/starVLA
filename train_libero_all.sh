@@ -52,7 +52,7 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 # pretrained_checkpoint=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt
 # spatial_model=""
 base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-3B-Instruct'
-freeze_module_list="qwen_vl_interface.model,action_model"
+freeze_modules="qwen_vl_interface.model,action_model"
 run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_orig
 pretrained_checkpoint=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
 spatial_model="----framework.spatial_model null"

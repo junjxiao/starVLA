@@ -277,7 +277,7 @@ def compute_depth_loss(predictions, batch, gamma=1.0, alpha=0.2, gradient_loss_f
         f"loss_grad_depth": loss_grad,
     }
 
-    return loss_conf+loss_reg+loss_grad, loss_dict
+    return loss_dict
 
 def filter_by_quantile(loss_tensor, valid_range, min_elements=1000, hard_max=100):
     """
@@ -650,8 +650,9 @@ class Qwen_GR00TDPT(baseframework):
             "point_masks": torch.ones_like(gt_depth).to(torch.bool)
         }
 
-        depth_loss = compute_depth_loss(predictions, batch)[0]
+        loss_dict = compute_depth_loss(predictions, batch)
 
+        depth_loss = loss_dict["loss_reg_depth"] #+loss_dict["loss_conf_depth"] +loss_dict["loss_grad_depth"] 
         return {"action_loss": depth_loss}
 
     @torch.inference_mode()
