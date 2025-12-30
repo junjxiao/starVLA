@@ -38,29 +38,34 @@ mkdir -p ${output_dir}
 # mv this script to the output dir
 cp $0 ${output_dir}/
 
-
-# CUDA_VISIBLE_DEVICES=3 accelerate launch \
-#   --config_file starVLA/config/deepseeds/deepspeed_zero2.yaml \
-#   --num_processes 1 \
-#   starVLA/training/train_starvla.py \
+# CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
+#   --master_port=29502\
+#   starVLA/training/train_starvla_dpt.py \
+#   --deepspeed starVLA/config/deepseeds/zero3.json \
 #   --config_yaml ${config_yaml} \
 #   --framework.name ${Framework_name} \
 #   --framework.qwenvl.base_vlm ${base_vlm} \
 #   --datasets.vla_data.data_root_dir ${libero_data_root}\
 #   --datasets.vla_data.data_mix ${data_mix} \
-#   --datasets.vla_data.per_device_batch_size 2 \
+#   --datasets.vla_data.per_device_batch_size 16 \
 #   --trainer.vla_data.video_backend torchvision_av \
 #   --trainer.freeze_modules ${freeze_module_list} \
 #   --trainer.max_train_steps 100000 \
 #   --trainer.save_interval 10000 \
 #   --trainer.logging_frequency 100 \
-#   --trainer.eval_interval 1000 \
+#   --trainer.eval_interval 1 \
 #   --run_root_dir ${run_root_dir} \
 #   --run_id ${run_id} \
-#   # --is_debug True
+#   --framework.fuser.type 'cross_attention' \
+#   --framework.qwen_image_edit_model null \
+#   --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt\
+#   --trainer.reload_modules ${freeze_module_list}
 
+  # --is_debug True
 
-
+base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-3B-Instruct
+freeze_module_list="qwen_vl_interface.model,action_model"
+run_id='1230_libero_spatial_train_depth_Qwen3vlGR00T_orig'
 CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --master_port=29502\
   starVLA/training/train_starvla_dpt.py \
@@ -76,14 +81,11 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --trainer.max_train_steps 100000 \
   --trainer.save_interval 10000 \
   --trainer.logging_frequency 100 \
-  --trainer.eval_interval 1 \
+  --trainer.eval_interval 10 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
+  --framework.spatial_model null \
   --framework.fuser.type 'cross_attention' \
   --framework.qwen_image_edit_model null \
-  --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt\
+  --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt\
   --trainer.reload_modules ${freeze_module_list}
-
-  # --is_debug True
-
-
