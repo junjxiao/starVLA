@@ -652,7 +652,7 @@ class Qwen_GR00TDPT(baseframework):
 
         loss_dict = compute_depth_loss(predictions, batch)
 
-        depth_loss = loss_dict["loss_reg_depth"] #+loss_dict["loss_conf_depth"] +loss_dict["loss_grad_depth"] 
+        depth_loss = loss_dict["loss_reg_depth"] +loss_dict["loss_conf_depth"] #+loss_dict["loss_grad_depth"] 
         return {"action_loss": depth_loss}
 
     @torch.inference_mode()
