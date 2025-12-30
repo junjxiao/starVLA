@@ -38,7 +38,7 @@ from starVLA.training.trainer_utils.trainer_tools import normalize_dotlist_args
 from starVLA.model.framework import build_framework
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils
 from starVLA.training.trainer_utils.trainer_tools import build_param_lr_groups
-
+import cv2
 ds_config_file = os.environ.get("DEEPSPEED_CONFIG_FILE", None)
 if ds_config_file is not None:
     deepspeed_plugin = DeepSpeedPlugin(hf_ds_config=ds_config_file)
@@ -182,6 +182,8 @@ class VLATrainer(TrainerUtils):
 
         self._init_wandb()
         self._init_checkpointing()
+        self.eval_root = os.path.join(self.config.output_dir, 'eval')
+        os.makedirs(self.eval_root, exist_ok=True)
 
     def _calculate_total_batch_size(self):
         """calculate global batch size"""
@@ -370,15 +372,16 @@ class VLATrainer(TrainerUtils):
                 examples=examples, use_ddim=True, num_ddim_steps=20
             )
 
-            normalized_actions = output_dict["normalized_actions"]  # B, T, D
+            depth = output_dict["depth"]  # B, T, D
 
-            actions = np.array(actions)  # convert actions to numpy.ndarray
-            # B, Chunk, dim = actions.shape
-            num_pots = np.prod(actions.shape)
-            # Compute the metric score
-            score = TrainerUtils.euclidean_distance(normalized_actions, actions)
-            average_score = score / num_pots
-            step_metrics["mse_score"] = average_score
+            depth = depth.squeeze().detach().cpu().numpy()  # convert actions to numpy.ndarray
+            gt_depth = np.array([example["image"][2] for example in examples])[...,0] / 255.
+            
+            step_metrics["mse_score"] = np.sqrt((depth - gt_depth)**2).mean()
+            depth_map = (depth[0] * 255).astype(np.uint8)
+
+            cv2.imwrite(os.path.join(self.eval_root, f"step_{self.completed_steps}.jpg"), depth_map)
+
         pass
         dist.barrier()  # ensure all processes are synchronized
         return step_metrics

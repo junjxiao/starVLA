@@ -10,16 +10,16 @@
 # export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
-freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
-# freeze_module_list="qwen_vl_interface.model,spatial_model"
+Framework_name=QwenGR00TDPT #QwenGR00T, QwenGR00TSpatial
+# freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
+freeze_module_list="qwen_vl_interface.model,spatial_model,fuser,spatial_projector,action_model"
 
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
-libero_data_root=/mnt/nas-data-3/yangyandan/libero
-data_mix=libero_10
+libero_data_root=/mnt/xlab-nas-1/junjin/dataset/libero_no_noops_1.0.0_lerobot
+data_mix=libero_depth_spatial
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
-run_id=test_libero10
+run_id='1230_libero_spatial_train_depth_Qwen3vlGR00T_vggt_cross'
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -61,16 +61,16 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1\
-  --master_port=29501\
-  starVLA/training/train_starvla.py \
+CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
+  --master_port=29502\
+  starVLA/training/train_starvla_dpt.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
   --config_yaml ${config_yaml} \
   --framework.name ${Framework_name} \
   --framework.qwenvl.base_vlm ${base_vlm} \
   --datasets.vla_data.data_root_dir ${libero_data_root}\
   --datasets.vla_data.data_mix ${data_mix} \
-  --datasets.vla_data.per_device_batch_size 1 \
+  --datasets.vla_data.per_device_batch_size 16 \
   --trainer.vla_data.video_backend torchvision_av \
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 100000 \
@@ -80,6 +80,9 @@ CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1\
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
+  --framework.qwen_image_edit_model null \
+  --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt\
+  --trainer.reload_modules ${freeze_module_list}
 
   # --is_debug True
 

@@ -79,7 +79,7 @@ def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
     # Compute dataset statistics
     dataset_statistics = {}
     for le_modality in all_low_dim_data.columns:
-        if le_modality.startswith("annotation."):
+        if le_modality.startswith("annotation.") or le_modality.startswith("ori_file") or le_modality.startswith("demo_name"):
             continue
         print(f"Computing statistics for {le_modality}...")
         np_data = np.vstack(

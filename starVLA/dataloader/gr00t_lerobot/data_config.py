@@ -521,6 +521,84 @@ class Libero4in1DataConfig:
 
         return ComposedModalityTransform(transforms=transforms)
 
+class LiberoDepth4in1DataConfig:
+    video_keys = [
+        "video.primary_image",
+        "video.wrist_image",
+        "video.primary_depth",
+        "video.wrist_depth",
+    ]
+    
+    state_keys = [
+        "state.x",
+        "state.y",
+        "state.z",
+        "state.roll",
+        "state.pitch",
+        "state.yaw",
+        "state.pad",
+        "state.gripper",
+    ]
+    action_keys = [
+        "action.x",
+        "action.y",
+        "action.z",
+        "action.roll",
+        "action.pitch",
+        "action.yaw",
+        "action.gripper",
+    ]
+    
+    language_keys = ["annotation.human.action.task_description"]
+
+    observation_indices = [0]
+    action_indices = list(range(8))
+
+
+    def modality_config(self):
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+        return modality_configs
+
+    def transform(self):
+        transforms = [
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+            apply_to=self.action_keys,
+            normalization_modes={
+                "action.x": "min_max",
+                "action.y": "min_max",
+                "action.z": "min_max",
+                "action.roll": "min_max",
+                "action.pitch": "min_max",
+                "action.yaw": "min_max",
+            },
+        ),
+        ]
+
+        return ComposedModalityTransform(transforms=transforms)
+
 ###########################################################################################
 
 
@@ -596,6 +674,7 @@ class SingleFrankaRobotiqDeltaJointsDataConfig:
 
 ROBOT_TYPE_CONFIG_MAP = {
     "libero_franka": Libero4in1DataConfig(),
+    "libero_depth_franka": LiberoDepth4in1DataConfig(),
     "oxe_droid": OxeDroidDataConfig(),
     "oxe_bridge": OxeBridgeDataConfig(),
     "oxe_rt1": OxeRT1DataConfig(),

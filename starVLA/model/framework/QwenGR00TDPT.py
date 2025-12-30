@@ -45,6 +45,7 @@ from starVLA.model.tools import FRAMEWORK_REGISTRY
 from vggt.models.vggt import VGGT
 from diffusers import QwenImageEditPlusPipeline
 from starVLA.model.modules.projector.QFormer import get_layerwise_qformer
+from vggt.heads.dpt_head import DPTHead
 
 class CrossAttention(nn.Module):
     def __init__(
@@ -207,144 +208,278 @@ def preprocess_images(image_list, target_size, mode='crop'): #  [B，[PLT]]
             batch_images = batch_images.unsqueeze(0)
     return batch_images
 
-class TokenDownsampler(nn.Module):
-    def __init__(
-        self, 
-        input_tokens: int = 4096,
-        input_dim: int = 64,
-        target_tokens: int = 256,      # 你可以设为 1024, 256, 64 等
-        output_dim: int = 2560,
-        use_residual: bool = True
-    ):
-        super().__init__()
-        
-        # 验证输入
-        # assert input_tokens == 4096, "Input tokens must be 4096"
-        # assert input_dim == 16, "Input dimension must be 16"
-        
-        # 计算空间尺寸
-        input_h = input_w = int(input_tokens ** 0.5)  # 64
-        target_h = target_w = int(target_tokens ** 0.5)
-        
-        assert input_h * input_w == input_tokens, "Input tokens must be a perfect square"
-        assert target_h * target_w == target_tokens, "Target tokens must be a perfect square"
-        assert input_h % target_h == 0, "Input size must be divisible by target size"
-        
-        self.input_h = input_h
-        self.input_w = input_w
-        self.target_h = target_h
-        self.target_w = target_w
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.use_residual = use_residual
-        
-        # 计算下采样倍数
-        downsample_factor = input_h // target_h  # e.g., 64//8 = 8
-        
-        # 构建下采样网络
-        layers = []
-        current_dim = input_dim
-        
-        if downsample_factor >= 8:
-            # 64 -> 32 -> 16 -> 8 (3 steps for 8x downsample)
-            layers.extend([
-                nn.Conv2d(current_dim, 64, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(8, 64),
-                nn.ReLU(inplace=True),
-            ])
-            current_dim = 64
-            
-            layers.extend([
-                nn.Conv2d(current_dim, 256, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(16, 256),
-                nn.ReLU(inplace=True),
-            ])
-            current_dim = 256
-            
-            layers.extend([
-                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(min(32, output_dim // 8), output_dim),
-                nn.ReLU(inplace=True),
-            ])
-            
-        elif downsample_factor >= 4:
-            # 64 -> 32 -> 16 (2 steps for 4x downsample)
-            layers.extend([
-                nn.Conv2d(current_dim, 128, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(8, 128),
-                nn.ReLU(inplace=True),
-            ])
-            current_dim = 128
-            
-            layers.extend([
-                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(min(32, output_dim // 8), output_dim),
-                nn.ReLU(inplace=True),
-            ])
-            
-        elif downsample_factor >= 2:
-            # 64 -> 32 (1 step for 2x downsample)
-            layers.extend([
-                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
-                nn.GroupNorm(min(32, output_dim // 8), output_dim),
-                nn.ReLU(inplace=True),
-            ])
-        else:
-            # No downsampling, just projection
-            layers.extend([
-                nn.Conv2d(current_dim, output_dim, kernel_size=1),
-                nn.GroupNorm(min(32, output_dim // 8), output_dim),
-                nn.ReLU(inplace=True),
-            ])
-        
-        self.downsample_proj = nn.Sequential(*layers)
-        
-        # 可选：残差连接（如果输入和输出空间尺寸相同且维度匹配）
-        if use_residual and downsample_factor == 1 and input_dim == output_dim:
-            self.residual_proj = nn.Identity()
-        elif use_residual and downsample_factor == 1:
-            self.residual_proj = nn.Conv2d(input_dim, output_dim, kernel_size=1)
-        else:
-            self.residual_proj = None
-            
-    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            tokens: (B, 4096, 16) - input tokens
-            
-        Returns:
-            output_tokens: (B, target_tokens, 2560) - downsampled and expanded tokens
-        """
-        B = tokens.shape[0]
-        
-        # Reshape to spatial format: (B, 16, 64, 64)
-        x = tokens.transpose(1, 2).reshape(B, self.input_dim, self.input_h, self.input_w)
-        
-        # Save for residual if needed
-        if self.residual_proj is not None:
-            x_res = self.residual_proj(x)
-        else:
-            x_res = None
-        
-        # Apply downsampling and expansion
-        x = self.downsample_proj(x)  # (B, 2560, target_h, target_w)
-        
-        # Add residual connection if available
-        if x_res is not None:
-            # Ensure spatial dimensions match
-            if x_res.shape[2:] != x.shape[2:]:
-                x_res = torch.nn.functional.interpolate(
-                    x_res, size=x.shape[2:], mode='nearest'
-                )
-            x = x + x_res
-        
-        # Reshape back to tokens: (B, 2560, target_tokens) -> (B, target_tokens, 2560)
-        output_tokens = x.reshape(B, self.output_dim, -1).transpose(1, 2)
-        
-        return output_tokens
+def check_and_fix_inf_nan(input_tensor, loss_name="default", hard_max=100):
+    """
+    Checks if 'input_tensor' contains inf or nan values and clamps extreme values.
+    
+    Args:
+        input_tensor (torch.Tensor): The loss tensor to check and fix.
+        loss_name (str): Name of the loss (for diagnostic prints).
+        hard_max (float, optional): Maximum absolute value allowed. Values outside 
+                                  [-hard_max, hard_max] will be clamped. If None, 
+                                  no clamping is performed. Defaults to 100.
+    """
+    if input_tensor is None:
+        return input_tensor
+    
+    # Check for inf/nan values
+    has_inf_nan = torch.isnan(input_tensor).any() or torch.isinf(input_tensor).any()
+    if has_inf_nan:
+        logging.warning(f"Tensor {loss_name} contains inf or nan values. Replacing with zeros.")
+        input_tensor = torch.where(
+            torch.isnan(input_tensor) | torch.isinf(input_tensor),
+            torch.zeros_like(input_tensor),
+            input_tensor
+        )
 
-@FRAMEWORK_REGISTRY.register("QwenGR00TSpatial")
-class Qwen_GR00TSpatial(baseframework):
+    # Apply hard clamping if specified
+    if hard_max is not None:
+        input_tensor = torch.clamp(input_tensor, min=-hard_max, max=hard_max)
+
+    return input_tensor
+
+def compute_depth_loss(predictions, batch, gamma=1.0, alpha=0.2, gradient_loss_fn = '', valid_range=0.98, **kwargs):
+    """
+    Compute depth loss.
+    
+    Args:
+        predictions: Dict containing 'depth' and 'depth_conf'
+        batch: Dict containing ground truth 'depths' and 'point_masks'
+        gamma: Weight for confidence loss
+        alpha: Weight for confidence regularization
+        gradient_loss_fn: Type of gradient loss to apply
+        valid_range: Quantile range for outlier filtering
+    """
+    pred_depth = predictions['depth']
+    pred_depth_conf = predictions['depth_conf']
+
+    gt_depth = batch['depths']
+    gt_depth = check_and_fix_inf_nan(gt_depth, "gt_depth")
+    gt_depth = gt_depth[..., None]              # (B, H, W, 1)
+    gt_depth_mask = batch['point_masks'].clone()   # 3D points derived from depth map, so we use the same mask
+
+    if gt_depth_mask.sum() < 100:
+        # If there are less than 100 valid points, skip this batch
+        dummy_loss = (0.0 * pred_depth).mean()
+        loss_dict = {f"loss_conf_depth": dummy_loss,
+                    f"loss_reg_depth": dummy_loss,
+                    f"loss_grad_depth": dummy_loss,}
+        return loss_dict
+
+    # NOTE: we put conf inside regression_loss so that we can also apply conf loss to the gradient loss in a multi-scale manner
+    # this is hacky, but very easier to implement
+    loss_conf, loss_grad, loss_reg = regression_loss(pred_depth, gt_depth, gt_depth_mask, conf=pred_depth_conf,
+                                             gradient_loss_fn=gradient_loss_fn, gamma=gamma, alpha=alpha, valid_range=valid_range)
+
+    loss_dict = {
+        f"loss_conf_depth": loss_conf,
+        f"loss_reg_depth": loss_reg,    
+        f"loss_grad_depth": loss_grad,
+    }
+
+    return loss_conf+loss_reg+loss_grad, loss_dict
+
+def filter_by_quantile(loss_tensor, valid_range, min_elements=1000, hard_max=100):
+    """
+    Filter loss tensor by keeping only values below a certain quantile threshold.
+    
+    This helps remove outliers that could destabilize training.
+    
+    Args:
+        loss_tensor: Tensor containing loss values
+        valid_range: Float between 0 and 1 indicating the quantile threshold
+        min_elements: Minimum number of elements required to apply filtering
+        hard_max: Maximum allowed value for any individual loss
+    
+    Returns:
+        Filtered and clamped loss tensor
+    """
+    if loss_tensor.numel() <= min_elements:
+        # Too few elements, just return as-is
+        return loss_tensor
+
+    # Randomly sample if tensor is too large to avoid memory issues
+    if loss_tensor.numel() > 100000000:
+        # Flatten and randomly select 1M elements
+        indices = torch.randperm(loss_tensor.numel(), device=loss_tensor.device)[:1_000_000]
+        loss_tensor = loss_tensor.view(-1)[indices]
+
+    # First clamp individual values to prevent extreme outliers
+    loss_tensor = loss_tensor.clamp(max=hard_max)
+
+    # Compute quantile threshold
+    quantile_thresh = torch_quantile(loss_tensor.detach(), valid_range)
+    quantile_thresh = min(quantile_thresh, hard_max)
+
+    # Apply quantile filtering if enough elements remain
+    quantile_mask = loss_tensor < quantile_thresh
+    if quantile_mask.sum() > min_elements:
+        return loss_tensor[quantile_mask]
+    return loss_tensor
+
+
+def torch_quantile(
+    input,
+    q,
+    dim = None,
+    keepdim: bool = False,
+    *,
+    interpolation: str = "nearest",
+    out: torch.Tensor = None,
+) -> torch.Tensor:
+    """Better torch.quantile for one SCALAR quantile.
+
+    Using torch.kthvalue. Better than torch.quantile because:
+        - No 2**24 input size limit (pytorch/issues/67592),
+        - Much faster, at least on big input sizes.
+
+    Arguments:
+        input (torch.Tensor): See torch.quantile.
+        q (float): See torch.quantile. Supports only scalar input
+            currently.
+        dim (int | None): See torch.quantile.
+        keepdim (bool): See torch.quantile. Supports only False
+            currently.
+        interpolation: {"nearest", "lower", "higher"}
+            See torch.quantile.
+        out (torch.Tensor | None): See torch.quantile. Supports only
+            None currently.
+    """
+    # https://github.com/pytorch/pytorch/issues/64947
+    # Sanitization: q
+    try:
+        q = float(q)
+        assert 0 <= q <= 1
+    except Exception:
+        raise ValueError(f"Only scalar input 0<=q<=1 is currently supported (got {q})!")
+
+    # Handle dim=None case
+    if dim_was_none := dim is None:
+        dim = 0
+        input = input.reshape((-1,) + (1,) * (input.ndim - 1))
+
+    # Set interpolation method
+    if interpolation == "nearest":
+        inter = round
+    elif interpolation == "lower":
+        inter = floor
+    elif interpolation == "higher":
+        inter = ceil
+    else:
+        raise ValueError(
+            "Supported interpolations currently are {'nearest', 'lower', 'higher'} "
+            f"(got '{interpolation}')!"
+        )
+
+    # Validate out parameter
+    if out is not None:
+        raise ValueError(f"Only None value is currently supported for out (got {out})!")
+
+    # Compute k-th value
+    k = inter(q * (input.shape[dim] - 1)) + 1
+    out = torch.kthvalue(input, k, dim, keepdim=True, out=out)[0]
+
+    # Handle keepdim and dim=None cases
+    if keepdim:
+        return out
+    if dim_was_none:
+        return out.squeeze()
+    else:
+        return out.squeeze(dim)
+
+    return out
+
+def regression_loss(pred, gt, mask, conf=None, gradient_loss_fn='', gamma=1.0, alpha=0.2, valid_range=-1):
+    """
+    Core regression loss function with confidence weighting and optional gradient loss.
+    
+    Computes:
+    1. gamma * ||pred - gt||^2 * conf - alpha * log(conf)
+    2. Optional gradient loss
+    
+    Args:
+        pred: (B, S, H, W, C) predicted values
+        gt: (B, S, H, W, C) ground truth values
+        mask: (B, S, H, W) valid pixel mask
+        conf: (B, S, H, W) confidence weights (optional)
+        gradient_loss_fn: Type of gradient loss ("normal", "grad", etc.)
+        gamma: Weight for confidence loss
+        alpha: Weight for confidence regularization
+        valid_range: Quantile range for outlier filtering
+    
+    Returns:
+        loss_conf: Confidence-weighted loss
+        loss_grad: Gradient loss (0 if not specified)
+        loss_reg: Regular L2 loss
+    """
+    bb, ss, hh, ww, nc = pred.shape
+
+    # Compute L2 distance between predicted and ground truth points
+    loss_reg = torch.norm(gt[mask] - pred[mask], dim=-1)
+    loss_reg = check_and_fix_inf_nan(loss_reg, "loss_reg")
+
+    # Confidence-weighted loss: gamma * loss * conf - alpha * log(conf)
+    # This encourages the model to be confident on easy examples and less confident on hard ones
+    loss_conf = gamma * loss_reg * conf[mask] - alpha * torch.log(conf[mask])
+    loss_conf = check_and_fix_inf_nan(loss_conf, "loss_conf")
+        
+    # Initialize gradient loss
+    loss_grad = 0
+
+    # Prepare confidence for gradient loss if needed
+    if "conf" in gradient_loss_fn:
+        to_feed_conf = conf.reshape(bb*ss, hh, ww)
+    else:
+        to_feed_conf = None
+
+    # Compute gradient loss if specified for spatial smoothness
+    if "normal" in gradient_loss_fn:
+        # Surface normal-based gradient loss
+        loss_grad = gradient_loss_multi_scale_wrapper(
+            pred.reshape(bb*ss, hh, ww, nc),
+            gt.reshape(bb*ss, hh, ww, nc),
+            mask.reshape(bb*ss, hh, ww),
+            gradient_loss_fn=normal_loss,
+            scales=3,
+            conf=to_feed_conf,
+        )
+    elif "grad" in gradient_loss_fn:
+        # Standard gradient-based loss
+        loss_grad = gradient_loss_multi_scale_wrapper(
+            pred.reshape(bb*ss, hh, ww, nc),
+            gt.reshape(bb*ss, hh, ww, nc),
+            mask.reshape(bb*ss, hh, ww),
+            gradient_loss_fn=gradient_loss,
+            conf=to_feed_conf,
+        )
+
+    # Process confidence-weighted loss
+    if loss_conf.numel() > 0:
+        # Filter out outliers using quantile-based thresholding
+        if valid_range>0:
+            loss_conf = filter_by_quantile(loss_conf, valid_range)
+
+        loss_conf = check_and_fix_inf_nan(loss_conf, f"loss_conf_depth")
+        loss_conf = loss_conf.mean()
+    else:
+        loss_conf = (0.0 * pred).mean()
+
+    # Process regular regression loss
+    if loss_reg.numel() > 0:
+        # Filter out outliers using quantile-based thresholding
+        if valid_range>0:
+            loss_reg = filter_by_quantile(loss_reg, valid_range)
+
+        loss_reg = check_and_fix_inf_nan(loss_reg, f"loss_reg_depth")
+        loss_reg = loss_reg.mean()
+    else:
+        loss_reg = (0.0 * pred).mean()
+
+    return loss_conf, loss_grad, loss_reg
+
+
+@FRAMEWORK_REGISTRY.register("QwenGR00TDPT")
+class Qwen_GR00TDPT(baseframework):
     """
     Multimodal vision-language-action model.
 
@@ -382,18 +517,19 @@ class Qwen_GR00TSpatial(baseframework):
         self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
         self.spatial_model = self.get_spatial_model(config)
         self.spatial_projector = self.get_spatial_projector(config)
-        if getattr(self.config.framework, 'qwen_image_edit_model', None) is not None:
-            self.qwen_image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.qwen_image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-            self.qwen_image_edit_model.set_progress_bar_config(disable=True)
-            self.qwen_projector = TokenDownsampler()
+        # if getattr(self.config.framework, 'qwen_image_edit_model', None) is not None:
+        #     self.qwen_image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.qwen_image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+        #     self.qwen_image_edit_model.set_progress_bar_config(disable=True)
+        #     self.qwen_projector = TokenDownsampler()
 
-        if getattr(self.config.framework, 'fuser', None) is None:
-            self.config.framework.fuser = {'type':'concat'}
+        
+        self.config.framework.fuser = {'type':'cross_attention'}
         print(self.config.framework.fuser.type)
         if self.config.framework.fuser.type == 'cross_attention':
             self.fuser = self.get_cross_attention(config)
-        elif self.config.framework.fuser.type == 'mlayer':
-            self.fuser = get_layerwise_qformer(config=self.config)
+        else:
+            raise NotImplementedError
+        self.depth_head = DPTHead(dim_in=self.qwen_vl_interface.model.config.hidden_size//4, output_dim=2, activation="exp", conf_activation="expp1",intermediate_layer_idx=[0,1,2,3])
 
     def get_cross_attention(self, config):
         model = CrossAttention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
@@ -444,26 +580,27 @@ class Qwen_GR00TSpatial(baseframework):
 
         """
         
-        batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
+        batch_images = [example["image"][:2] for example in examples]  #  [B，[PLT]]
+        batch_depth = [example["image"][2] for example in examples]
         instructions = [example["lang"] for example in examples]  # [B, str]
         actions = [example["action"] for example in examples]  # label [B， len, 7]
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
-
-        # Step 1: QWenVL input format
-        qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
-        with torch.autocast("cuda", dtype=torch.bfloat16):
-            qwenvl_outputs = self.qwen_vl_interface(
-                **qwen_inputs,
-                output_attentions=False,
-                output_hidden_states=True,
-                return_dict=True,
-            )    
-
-        # step 2: encode spatial feature
         with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):     
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16):  
+                # Step 1: QWenVL input format
+                qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
+
+                qwenvl_outputs = self.qwen_vl_interface(
+                    **qwen_inputs,
+                    output_attentions=False,
+                    output_hidden_states=True,
+                    return_dict=True,
+                )    
+
+                # step 2: encode spatial feature
+                
                 if self.spatial_type == "vggt":    
                     spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
                     aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
@@ -473,90 +610,48 @@ class Qwen_GR00TSpatial(baseframework):
                     feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
                     Bs, S, N, C = feats[0][0].shape
                     spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
-        extra_latents = None
+
+                # step 3: fuse spatial tokens and qwen tokens
+                num_layers = 4
+                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
+                spatial_interval = len(aggregated_tokens_list) // num_layers
+                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
+                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+                spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
+                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+                
+                hiddens = []
+                for i in range(num_layers):
+                    last_hidden = self.fuser(qwenvl_hidden_states[i], spatial_hidden_states[i])
+                    hiddens.append(last_hidden)
+
         
-        if getattr(self, 'qwen_image_edit_model', None) is not None:
-            primary_image = [image[0] for image in batch_images]
-            extra_latents = self.forward_pass_qwen_image_edit_model(primary_image)
-        # step 3: fuse spatial tokens and qwen tokens
+        # TODO：根据inputid取出图像token
+        bs = qwen_inputs['input_ids'].shape[0]
+        image_grid_thw = qwen_inputs['image_grid_thw']
+        primary_img_idx = qwen_inputs['input_ids'] == 151655
+        primary_img_tokens = [hidden[primary_img_idx].view(bs,primary_img_idx[0].sum(), -1) for hidden in hiddens]
+        token_len = len(primary_img_tokens[0][1])
+        primary_img_tokens = [hidden[:,:token_len//2].view(bs, token_len*2, -1) for hidden in primary_img_tokens]
         
-        if self.config.framework.fuser.type == 'concat':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-            if extra_latents is not None:
-                last_hidden = torch.cat([last_hidden, extra_latents], dim=1)
-        elif self.config.framework.fuser.type == 'cross_attention':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
+        depth, dep_conf = self.depth_head(primary_img_tokens, spatial_input[:,:1], patch_start_idx=0)
 
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-            if extra_latents is not None:
-                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-            last_hidden = self.fuser(last_hidden, spatial_tokens)
-        elif self.config.framework.fuser.type == 'mlayer':
-            num_layers = self.config.framework.layer_qformer.num_layers
-            qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
-            qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
-            qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
-            spatial_interval = len(aggregated_tokens_list) // num_layers
-            spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
-            spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
-            spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
-            spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+        predictions = {
+            "depth": depth,
+            "depth_conf": dep_conf
+        }
+        to_tensor = TF.ToTensor()
+        gt_depth = torch.stack([to_tensor(depth_img)[:1].to(depth.device) for depth_img in batch_depth])
+        batch = {
+            "depths": gt_depth,
+            "point_masks": torch.ones_like(gt_depth).to(torch.bool)
+        }
 
-            cat_conditions = []
-            for layer_index in range(num_layers):
-                if extra_latents is not None:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents], dim=1
-                    )
-                else:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
-                    )
-                cat_conditions.append(layer_features)
+        depth_loss = compute_depth_loss(predictions, batch)[0]
 
-            last_hidden = self.fuser(cat_conditions)
-        else:
-            raise NotImplementedError
-
-        # Step 4: Action Expert Forward and Loss
-        with torch.autocast("cuda", dtype=torch.float32):
-            actions = torch.tensor(
-                np.array(actions), device=last_hidden.device, dtype=last_hidden.dtype
-            )  # [B, T_full, action_dim]
-            actions_target = actions[:, -(self.future_action_window_size+1):, :]  # (B, chunk_len, action_dim)
-
-            repeated_diffusion_steps = (
-                self.config.trainer.get("repeated_diffusion_steps", 4) if self.config and self.config.trainer else 4
-            )
-            actions_target_repeated = actions_target.repeat(repeated_diffusion_steps, 1, 1)
-            last_hidden_repeated = last_hidden.repeat(repeated_diffusion_steps, 1, 1)
-            
-            state_repeated = None
-            if state is not None:
-                state = torch.tensor(
-                    np.array(state), device=last_hidden.device, dtype=last_hidden.dtype
-                )
-                state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
-
-            action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
-
-
-
-        return {"action_loss": action_loss}
+        return {"action_loss": depth_loss}
 
     @torch.inference_mode()
     def predict_action(
@@ -575,7 +670,7 @@ class Qwen_GR00TSpatial(baseframework):
         """
         if type(examples) is not list:
             examples = [examples]
-        batch_images = [to_pil_preserve(example["image"]) for example in examples]  #  [B，[PLT]]
+        batch_images = [to_pil_preserve(example["image"][:2]) for example in examples]  #  [B，[PLT]]
         instructions = [example["lang"] for example in examples]  # [B, str]
     
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
@@ -584,54 +679,31 @@ class Qwen_GR00TSpatial(baseframework):
         if train_obs_image_size:
             batch_images = resize_images(batch_images, target_size=train_obs_image_size)
     
-        # Step 1: QWenVL input format
-        qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        with torch.cuda.amp.autocast(dtype=torch.bfloat16):  
+            # Step 1: QWenVL input format
+            qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
+
             qwenvl_outputs = self.qwen_vl_interface(
                 **qwen_inputs,
                 output_attentions=False,
                 output_hidden_states=True,
                 return_dict=True,
-            )
+            )    
 
-        # step 2: encode spatial feature
-        with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):     
-                if self.spatial_type == "vggt":    
-                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                elif self.spatial_type == "depthanything3":
-                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                    Bs, S, N, C = feats[0][0].shape
-                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
-        # step 3: fuse spatial tokens and qwen tokens
-        
-        if self.config.framework.fuser.type == 'concat':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-        elif self.config.framework.fuser.type == 'cross_attention':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
+            # step 2: encode spatial feature
             
-            last_hidden = self.fuser(last_hidden, spatial_tokens)
-        elif self.config.framework.fuser.type == 'mlayer':
-            # 提取qwen和vggt的中间特征，最后一层逼包含，其余平均
-            num_layers = self.config.framework.layer_qformer.num_layers
+            if self.spatial_type == "vggt":    
+                spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                
+            elif self.spatial_type == "depthanything3":
+                denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                Bs, S, N, C = feats[0][0].shape
+                spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+
+            # step 3: fuse spatial tokens and qwen tokens
+            num_layers = 4
             qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
             qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
             qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
@@ -640,26 +712,24 @@ class Qwen_GR00TSpatial(baseframework):
             spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
             spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
             spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+            
+            hiddens = []
+            for i in range(num_layers):
+                last_hidden = self.fuser(qwenvl_hidden_states[i], spatial_hidden_states[i])
+                hiddens.append(last_hidden)
 
-            cat_conditions = []
-            for layer_index in range(num_layers):
-                layer_features = torch.cat(
-                    [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
-                )
-                cat_conditions.append(layer_features)
-            # 使用qformer的形式来融合
-            last_hidden = self.fuser(cat_conditions)
-        else:
-            raise NotImplementedError
-
-        state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         
-        # Step 4: Action Expert Forward
-        with torch.autocast("cuda", dtype=torch.float32):
-            pred_actions = self.action_model.predict_action(last_hidden, state)  # (B, chunk_len, action_dim)
+        # TODO：根据inputid取出图像token
+        bs = qwen_inputs['input_ids'].shape[0]
+        image_grid_thw = qwen_inputs['image_grid_thw']
+        primary_img_idx = qwen_inputs['input_ids'] == 151655
+        primary_img_tokens = [hidden[primary_img_idx].view(bs,primary_img_idx[0].sum(), -1) for hidden in hiddens]
+        token_len = len(primary_img_tokens[0][1])
+        primary_img_tokens = [hidden[:,:token_len//2].view(bs, token_len*2, -1) for hidden in primary_img_tokens]
+        
+        depth, dep_conf = self.depth_head(primary_img_tokens, spatial_input[:,:1], patch_start_idx=0)
 
-        normalized_actions = pred_actions.detach().cpu().numpy()
-        return {"normalized_actions": normalized_actions}
+        return {"depth": depth}
 
 
 

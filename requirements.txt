@@ -30,5 +30,5 @@ rich
 timm
 tyro
 ipdb
--e /mnt/nas-data-5/junjin/code/vggt
+-e /mnt/xlab-nas-1/junjin/code/vggt
 -e /mnt/workspace/junjin/code/diffusers

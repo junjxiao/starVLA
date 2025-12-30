@@ -34,7 +34,9 @@ DATASET_NAMED_MIXTURES = {
     "libero_90": [
         ("libero_90_no_noops_lerobot", 1.0, "libero_franka"),
     ],
-
+    "libero_depth_spatial": [
+        ("libero_spatial_no_noops_1.0.0_lerobot", 1.0, "libero_depth_franka"),
+    ],
     "bridge": [
         ("bridge_orig_lerobot", 1.0, "oxe_bridge"),
     ],

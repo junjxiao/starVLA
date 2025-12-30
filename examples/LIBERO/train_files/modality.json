@@ -69,6 +69,12 @@
         },
         "wrist_image": {
             "original_key": "observation.images.wrist_image"
+        },
+        "primary_depth": {
+            "original_key": "observation.depth.depth"
+        },
+        "wrist_depth": {
+            "original_key": "observation.depth.wrist_depth"
         }
     },
     "annotation": {

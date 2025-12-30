@@ -120,8 +120,12 @@ trainer:
     weight_decay: 1.0e-08
 
   # parameters to be determined
+  # resume training (accelerator)
   is_resume: false
   resume_from_checkpoint: null
+  # load pretrained ckpt (model only)
+  pretrained_checkpoint: null
+  reload_modules: null
   resume_epoch: null
   resume_step: null
   enable_gradient_checkpointing: true
