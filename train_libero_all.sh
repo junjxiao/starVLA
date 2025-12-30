@@ -45,11 +45,17 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 #                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
 #                   --env="${ENVS}"
 
-base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct'
-freeze_modules='qwen_vl_interface.model,spatial_model,fuser,spatial_projector,action_model'
-run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_vggt_cross
-pretrained_checkpoint=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt
-
+# train depth head
+# base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct'
+# freeze_modules='qwen_vl_interface.model,spatial_model,fuser,spatial_projector,action_model'
+# run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_vggt_cross
+# pretrained_checkpoint=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt
+# spatial_model=""
+base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-3B-Instruct'
+freeze_module_list="qwen_vl_interface.model,action_model"
+run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_orig
+pretrained_checkpoint=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
+spatial_model="----framework.spatial_model null"
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TDPT \
       --framework.use_mv_images False \
@@ -71,7 +77,8 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.fuser.type cross_attention \
       --framework.qwen_image_edit_model null \
       --trainer.pretrained_checkpoint ${pretrained_checkpoint}\
-      --trainer.reload_modules ${freeze_modules}
+      --trainer.reload_modules ${freeze_modules} \
+      --framework.spatial_model null
       "
       # --trainer.resume_from_checkpoint null \
 
