@@ -515,20 +515,16 @@ class Qwen_GR00TDPT(baseframework):
         self.future_action_window_size = config.framework.action_model.future_action_window_size
         self.past_action_window_size = config.framework.action_model.past_action_window_size
         self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
-        self.spatial_model = self.get_spatial_model(config)
-        self.spatial_projector = self.get_spatial_projector(config)
-        # if getattr(self.config.framework, 'qwen_image_edit_model', None) is not None:
-        #     self.qwen_image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.qwen_image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-        #     self.qwen_image_edit_model.set_progress_bar_config(disable=True)
-        #     self.qwen_projector = TokenDownsampler()
-
+        if config.framework.spatial_model is not None:
+            self.spatial_model = self.get_spatial_model(config)
+            self.spatial_projector = self.get_spatial_projector(config)
         
-        self.config.framework.fuser = {'type':'cross_attention'}
-        print(self.config.framework.fuser.type)
-        if self.config.framework.fuser.type == 'cross_attention':
-            self.fuser = self.get_cross_attention(config)
-        else:
-            raise NotImplementedError
+            self.config.framework.fuser = {'type':'cross_attention'}
+            print(self.config.framework.fuser.type)
+            if self.config.framework.fuser.type == 'cross_attention':
+                self.fuser = self.get_cross_attention(config)
+            else:
+                raise NotImplementedError
         self.depth_head = DPTHead(dim_in=self.qwen_vl_interface.model.config.hidden_size//4, output_dim=2, activation="exp", conf_activation="expp1",intermediate_layer_idx=[0,1,2,3])
 
     def get_cross_attention(self, config):
@@ -586,7 +582,7 @@ class Qwen_GR00TDPT(baseframework):
         actions = [example["action"] for example in examples]  # label [B， len, 7]
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
-        
+        has_spatial_model = self.config.framework.spatial_model is not None
         with torch.no_grad():
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):  
                 # Step 1: QWenVL input format
@@ -598,39 +594,44 @@ class Qwen_GR00TDPT(baseframework):
                     output_hidden_states=True,
                     return_dict=True,
                 )    
-
+                spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
                 # step 2: encode spatial feature
-                
-                if self.spatial_type == "vggt":    
-                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                    
-                elif self.spatial_type == "depthanything3":
-                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                    Bs, S, N, C = feats[0][0].shape
-                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+                if has_spatial_model:
+                    if self.spatial_type == "vggt":    
+                        
+                        aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                        
+                    elif self.spatial_type == "depthanything3":
+                        denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                        feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                        Bs, S, N, C = feats[0][0].shape
+                        spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
 
-                # step 3: fuse spatial tokens and qwen tokens
-                num_layers = 4
-                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
-                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
-                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
-                spatial_interval = len(aggregated_tokens_list) // num_layers
-                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
-                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
-                spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
-                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
-                
-                hiddens = []
-                for i in range(num_layers):
-                    last_hidden = self.fuser(qwenvl_hidden_states[i], spatial_hidden_states[i])
-                    hiddens.append(last_hidden)
+                    # step 3: fuse spatial tokens and qwen tokens
+                    num_layers = 4
+                    qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                    qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                    qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
+                    spatial_interval = len(aggregated_tokens_list) // num_layers
+                    spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
+                    spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+                    spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
+                    spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+                    
+                    hiddens = []
+                    for i in range(num_layers):
+                        last_hidden = self.fuser(qwenvl_hidden_states[i], spatial_hidden_states[i])
+                        hiddens.append(last_hidden)
+                else:
+                    num_layers = 4
+                    qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                    qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                    hiddens = [qwenvl_outputs.hidden_states[i] for i in qwenvl_index]
+
 
         
         # TODO：根据inputid取出图像token
         bs = qwen_inputs['input_ids'].shape[0]
-        image_grid_thw = qwen_inputs['image_grid_thw']
         primary_img_idx = qwen_inputs['input_ids'] == 151655
         primary_img_tokens = [hidden[primary_img_idx].view(bs,primary_img_idx[0].sum(), -1) for hidden in hiddens]
         token_len = len(primary_img_tokens[0][1])
