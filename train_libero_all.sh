@@ -46,14 +46,14 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 #                   --env="${ENVS}"
 
 # train depth head
-# base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct'
-# freeze_modules='qwen_vl_interface.model,spatial_model,fuser,spatial_projector,action_model'
-# run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_vggt_cross
-# pretrained_checkpoint=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt
-base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-3B-Instruct'
-freeze_modules="qwen_vl_interface.model,action_model"
-run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_orig
-pretrained_checkpoint=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
+base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct'
+freeze_modules='qwen_vl_interface.model,spatial_model,fuser,spatial_projector,action_model'
+run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_vggt_cross
+pretrained_checkpoint=/mnt/workspace/junjin/code/starVLA/checkpoints/1219_liberoall_Qwen3vlGR00T_vggt_cross/checkpoints/steps_30000_pytorch_model.pt
+# base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-3B-Instruct'
+# freeze_modules="qwen_vl_interface.model,action_model"
+# run_id=1230_libero_spatial_train_depth_Qwen3vlGR00T_orig
+# pretrained_checkpoint=/mnt/workspace/zengshuang.zs/checkpoints/Qwen2.5-VL-GR00T-LIBERO-4in1/checkpoints/steps_30000_pytorch_model.pt
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TDPT \
       --framework.use_mv_images False \
@@ -76,8 +76,8 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.qwen_image_edit_model null \
       --trainer.pretrained_checkpoint ${pretrained_checkpoint}\
       --trainer.reload_modules ${freeze_modules} \
-      --framework.spatial_model null
       "
+      # --framework.spatial_model null
       # --trainer.resume_from_checkpoint null \
 
 # 打印将要传递的参数，方便调试
