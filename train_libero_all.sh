@@ -9,7 +9,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
       --datasets.vla_data.data_root_dir /mnt/nas-data-3/yangyandan/libero \
       --datasets.vla_data.data_mix libero_all \
-      --datasets.vla_data.per_device_batch_size 16 \
+      --datasets.vla_data.per_device_batch_size 8 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model' \
       --trainer.max_train_steps 30000 \
