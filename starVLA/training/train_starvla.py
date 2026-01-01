@@ -39,6 +39,7 @@ from starVLA.model.framework import build_framework
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils
 from starVLA.training.trainer_utils.trainer_tools import build_param_lr_groups
 from diffusers import QwenImageEditPlusPipeline
+from diffusers import LongCatImageEditPipeline
 ds_config_file = os.environ.get("DEEPSPEED_CONFIG_FILE", None)
 if ds_config_file is not None:
     deepspeed_plugin = DeepSpeedPlugin(hf_ds_config=ds_config_file)
@@ -146,11 +147,16 @@ class VLATrainer(TrainerUtils):
         # training status tracking
         self.completed_steps = 0
         self.total_batch_size = self._calculate_total_batch_size()
-        self.qwen_image_edit_model = None
-        if self.config.framework.qwen_image_edit_model is not None:
-            self.qwen_image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.qwen_image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-            self.qwen_image_edit_model.set_progress_bar_config(disable=True)
-            self.qwen_image_edit_model.to('cuda')
+        self.image_edit_model = None
+        if self.config.framework.image_edit_model is not None:
+            if 'Qwen' in self.config.framework.image_edit_model.model_name_or_path:
+                self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+            elif 'LongCat' in self.config.framework.image_edit_model.model_name_or_path:
+                self.image_edit_model = LongCatImageEditPipeline.from_pretrained(self.config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+            else:
+                raise NotImplementedError
+            self.image_edit_model.set_progress_bar_config(disable=True)
+            self.image_edit_model.to('cuda')
 
     def prepare_training(self):
         rank = dist.get_rank() if dist.is_initialized() else 0
@@ -372,7 +378,7 @@ class VLATrainer(TrainerUtils):
 
             # Predict actions using the model
             output_dict = self.model.predict_action(
-                examples=examples, qwen_image_model=self.qwen_image_edit_model,use_ddim=True, num_ddim_steps=20
+                examples=examples, image_edit_model=self.image_edit_model,use_ddim=True, num_ddim_steps=20
             )
 
             normalized_actions = output_dict["normalized_actions"]  # B, T, D
@@ -404,7 +410,7 @@ class VLATrainer(TrainerUtils):
 
             # VLA task forward propagation
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                output_dict = self.model.forward(batch_vla,self.qwen_image_edit_model)
+                output_dict = self.model.forward(batch_vla,self.image_edit_model)
 
                 action_loss = output_dict["action_loss"]
                 total_loss = action_loss

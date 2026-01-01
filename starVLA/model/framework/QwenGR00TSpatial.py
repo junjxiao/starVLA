@@ -382,11 +382,8 @@ class Qwen_GR00TSpatial(baseframework):
         self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
         self.spatial_model = self.get_spatial_model(config)
         self.spatial_projector = self.get_spatial_projector(config)
-        if getattr(self.config.framework, 'qwen_image_edit_model', None) is not None:
-            # self.qwen_image_edit_model = QwenImageEditPlusPipeline.from_pretrained(self.config.framework.qwen_image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-            # self.qwen_image_edit_model.set_progress_bar_config(disable=True)
-            # self.qwen_image_edit_model.to('cuda')
-            self.qwen_image_projector = TokenDownsampler()
+        if getattr(self.config.framework, 'image_edit_model', None) is not None:
+            self.image_edit_projector = TokenDownsampler()
 
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'concat'}
@@ -414,33 +411,35 @@ class Qwen_GR00TSpatial(baseframework):
         projector = nn.Linear(config.framework.spatial_model.output_dim, spatial_projector_cfg.output_dim)
         return projector
 
-    def forward_pass_qwen_image_edit_model(self, qwen_image_model, images, prompt=None):
-        if prompt is None:
-            prompt = "Preserve scene layout, object positions, and spatial relationships; only slightly adjust camera viewpoint, background color, and lighting."
-        inputs = {
-            "image": images,
-            "prompt": prompt,
-            "generator": torch.manual_seed(0),
-            "true_cfg_scale": 4.0,
-            "negative_prompt": " ",
-            "num_inference_steps": 2,
-            "guidance_scale": 1.0,
-            "num_images_per_prompt": len(images),
-            "output_type": "latent"
-        }
+    def forward_pass_image_edit_model(self, image_edit_model, images, prompt=None):
+        output_images = []
         with torch.inference_mode():
-            # output = self.qwen_image_edit_model(**inputs)
-            output = qwen_image_model(**inputs)
-            output_image = output.images
-        qwen_feat = self.qwen_image_projector(output_image.clone().to(self.qwen_image_projector.downsample_proj[0].weight.dtype))
-        return qwen_feat
+            if prompt is None:
+                prompt = "Preserve scene layout, object positions, and spatial relationships; only rotate the camera 5 degree to left, and slightly adjust background color and scene lighting."
+            for image in images:
+                inputs = {
+                    "image": image,
+                    "prompt": prompt,
+                    "generator": torch.manual_seed(0),
+                    "negative_prompt": " ",
+                    "num_inference_steps": 1,
+                    "guidance_scale": 4.5,
+                    "num_images_per_prompt": 1,
+                    "output_type": "latent"
+                }
+                
+                output = image_edit_model(**inputs)
+                output_images.append(output.images[0].clone())
+        output_image = torch.stack(output_images)
+        extra_feat = self.image_edit_projector(output_image.to(self.image_edit_projector.downsample_proj[0].weight.dtype))
+        return extra_feat
         
             
 
     def forward(
         self,
         examples: List[dict] = None,
-        qwen_image_model=None,
+        image_edit_model=None,
         **kwargs,
     ) -> Tuple:
         """
@@ -463,78 +462,74 @@ class Qwen_GR00TSpatial(baseframework):
                 output_hidden_states=True,
                 return_dict=True,
             )    
-
         # step 2: encode spatial feature
         with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):     
-                if self.spatial_type == "vggt":    
-                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                    
-                elif self.spatial_type == "depthanything3":
-                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                    Bs, S, N, C = feats[0][0].shape
-                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+            if self.spatial_type == "vggt":    
+                spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                
+            elif self.spatial_type == "depthanything3":
+                denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                Bs, S, N, C = feats[0][0].shape
+                spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
         extra_latents = None
-        
-        if qwen_image_model is not None:
+
+        if image_edit_model is not None:
             primary_image = [image[0] for image in batch_images]
-            extra_latents = self.forward_pass_qwen_image_edit_model(qwen_image_model, primary_image)
+            extra_latents = self.forward_pass_image_edit_model(image_edit_model, primary_image)
+
         # step 3: fuse spatial tokens and qwen tokens
-        
-        if self.config.framework.fuser.type == 'concat':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-            if extra_latents is not None:
-                last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
-        elif self.config.framework.fuser.type == 'cross_attention':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-
-            if extra_latents is not None:
-                spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
-            last_hidden = self.fuser(last_hidden, spatial_tokens)
-        elif self.config.framework.fuser.type == 'mlayer':
-            num_layers = self.config.framework.layer_qformer.num_layers
-            qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
-            qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
-            qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
-            spatial_interval = len(aggregated_tokens_list) // num_layers
-            spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
-            spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
-            spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
-            spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
-
-            cat_conditions = []
-            for layer_index in range(num_layers):
-                if extra_latents is not None:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
-                    )
+        with torch.autocast("cuda", dtype=torch.float32):
+            if self.config.framework.fuser.type == 'concat':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                if self.spatial_type == "vggt":
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
                 else:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
-                    )
-                cat_conditions.append(layer_features)
+                    raise NotImplementedError
+                spatial_tokens = self.spatial_projector(spatial_tokens)
+                last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+                if extra_latents is not None:
+                    last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
+            elif self.config.framework.fuser.type == 'cross_attention':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                if self.spatial_type == "vggt":
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+                else:
+                    raise NotImplementedError
 
-            last_hidden = self.fuser(cat_conditions)
-        else:
-            raise NotImplementedError
+                spatial_tokens = self.spatial_projector(spatial_tokens)
+
+                if extra_latents is not None:
+                    spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
+                last_hidden = self.fuser(last_hidden, spatial_tokens)
+            elif self.config.framework.fuser.type == 'mlayer':
+                num_layers = self.config.framework.layer_qformer.num_layers
+                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
+                spatial_interval = len(aggregated_tokens_list) // num_layers
+                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
+                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+
+                cat_conditions = []
+                for layer_index in range(num_layers):
+                    if extra_latents is not None:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
+                        )
+                    else:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
+                        )
+                    cat_conditions.append(layer_features)
+
+                last_hidden = self.fuser(cat_conditions)
+            else:
+                raise NotImplementedError
 
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
@@ -566,7 +561,7 @@ class Qwen_GR00TSpatial(baseframework):
     def predict_action(
         self,
         examples: List[dict],
-        qwen_image_model=None,
+        image_edit_model=None,
         **kwargs: str,
     ) -> np.ndarray:
         """
@@ -600,77 +595,73 @@ class Qwen_GR00TSpatial(baseframework):
             )
 
         # step 2: encode spatial feature
-        with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):     
-                if self.spatial_type == "vggt":    
-                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                elif self.spatial_type == "depthanything3":
-                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                    Bs, S, N, C = feats[0][0].shape
-                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
+        if self.spatial_type == "vggt":    
+            spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+            aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+        elif self.spatial_type == "depthanything3":
+            denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+            feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+            Bs, S, N, C = feats[0][0].shape
+            spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
 
         extra_latents = None
-        
-        if qwen_image_model is not None:
+
+        if image_edit_model is not None:
             primary_image = [image[0] for image in batch_images]
-            extra_latents = self.forward_pass_qwen_image_edit_model(qwen_image_model, primary_image)
+            extra_latents = self.forward_pass_image_edit_model(image_edit_model, primary_image)
         # step 3: fuse spatial tokens and qwen tokens
-        
-        if self.config.framework.fuser.type == 'concat':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-            last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-            if extra_latents is not None:
-                last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
-        elif self.config.framework.fuser.type == 'cross_attention':
-            # last_hidden_state: [B, seq_len, H]
-            last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            if self.spatial_type == "vggt":
-                spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-            else:
-                raise NotImplementedError
-
-            spatial_tokens = spatial_tokens.to(self.spatial_projector.weight.dtype)
-            spatial_tokens = self.spatial_projector(spatial_tokens)
-
-            if extra_latents is not None:
-                spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
-            last_hidden = self.fuser(last_hidden, spatial_tokens)
-        elif self.config.framework.fuser.type == 'mlayer':
-            # 提取qwen和vggt的中间特征，最后一层逼包含，其余平均
-            num_layers = self.config.framework.layer_qformer.num_layers
-            qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
-            qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
-            qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
-            spatial_interval = len(aggregated_tokens_list) // num_layers
-            spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
-            spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
-            spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
-            spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
-
-            cat_conditions = []
-            for layer_index in range(num_layers):
-                if extra_latents is not None:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
-                    )
+        with torch.autocast("cuda", dtype=torch.float32):
+            if self.config.framework.fuser.type == 'concat':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                if self.spatial_type == "vggt":
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
                 else:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
-                    )
-                cat_conditions.append(layer_features)
-            # 使用qformer的形式来融合
-            last_hidden = self.fuser(cat_conditions)
-        else:
-            raise NotImplementedError
+                    raise NotImplementedError
+                spatial_tokens = self.spatial_projector(spatial_tokens)
+                last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+                if extra_latents is not None:
+                    last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
+            elif self.config.framework.fuser.type == 'cross_attention':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                if self.spatial_type == "vggt":
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+                else:
+                    raise NotImplementedError
+                spatial_tokens = self.spatial_projector(spatial_tokens)
+
+                if extra_latents is not None:
+                    spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
+
+                last_hidden = self.fuser(last_hidden, spatial_tokens)
+            elif self.config.framework.fuser.type == 'mlayer':
+                # 提取qwen和vggt的中间特征，最后一层逼包含，其余平均
+                num_layers = self.config.framework.layer_qformer.num_layers
+                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
+                spatial_interval = len(aggregated_tokens_list) // num_layers
+                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
+                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+                spatial_hidden_states = spatial_hidden_states.to(self.spatial_projector.weight.dtype)
+                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+
+                cat_conditions = []
+                for layer_index in range(num_layers):
+                    if extra_latents is not None:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
+                        )
+                    else:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
+                        )
+                    cat_conditions.append(layer_features)
+                # 使用qformer的形式来融合
+                last_hidden = self.fuser(cat_conditions)
+            else:
+                raise NotImplementedError
 
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         

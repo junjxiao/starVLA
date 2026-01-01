@@ -32,3 +32,4 @@ tyro
 ipdb
 -e /mnt/xlab-nas-1/junjin/code/vggt
 -e /mnt/workspace/junjin/code/diffusers
+peft
