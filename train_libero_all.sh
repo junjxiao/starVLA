@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0102_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross
+run_id=0102_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.use_mv_images False \
