@@ -1,5 +1,5 @@
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
-                  --entry="bash examples/LIBERO-plus/eval_files/eval_libero_in_one.sh libero_goal"\
+                  --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_goal"\
                   --user_params="" \
                   --worker_count=1 \
                   --algoame=pytorch260\
@@ -10,7 +10,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106134019
 
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
-                  --entry="bash examples/LIBERO-plus/eval_files/eval_libero_in_one.sh libero_10"\
+                  --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_10"\
                   --user_params="" \
                   --worker_count=1 \
                   --algoame=pytorch260\
@@ -21,7 +21,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106134019
 
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
-                  --entry="bash examples/LIBERO-plus/eval_files/eval_libero_in_one.sh libero_object"\
+                  --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_object"\
                   --user_params="" \
                   --worker_count=1 \
                   --algoame=pytorch260\
@@ -32,7 +32,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106134019
 
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
-                  --entry="bash examples/LIBERO-plus/eval_files/eval_libero_in_one.sh libero_spatial"\
+                  --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_spatial"\
                   --user_params="" \
                   --worker_count=1 \
                   --algoame=pytorch260\
