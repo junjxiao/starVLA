@@ -33,3 +33,16 @@ ipdb
 -e /mnt/xlab-nas-1/junjin/code/vggt
 -e /mnt/workspace/junjin/code/diffusers
 peft
+
+robosuite==1.4.0
+gym==0.25.2
+mediapy 
+msgpack
+bddl==1.0.1
+-e /mnt/workspace/junjin/code/LIBERO-plus
+hydra-core==1.2.0
+easydict==1.9 
+robomimic==0.2.0 
+thop==0.1.1-2209072238
+future==0.18.2 
+draccus==0.8.0

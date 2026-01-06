@@ -1,7 +1,8 @@
 #!/bin/bash
 eval "$(conda shell.bash hook)"
 # source activate
-conda activate /mnt/workspace/junjin/conda/starvla
+# conda activate /mnt/workspace/junjin/conda/starvla
+pip install -r requirements.txt
 pip list
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
