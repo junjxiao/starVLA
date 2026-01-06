@@ -1,8 +1,8 @@
 #!/bin/bash
 eval "$(conda shell.bash hook)"
 # source activate
-# conda activate /mnt/workspace/junjin/conda/starvla
-pip install -r requirements.txt
+conda activate python3.10
+# pip install -r requirements.txt
 pip list
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
@@ -25,9 +25,9 @@ base_port=9882
 task_suite_name=$1
 echo $task_suite_name
 num_trials_per_task=1
+# torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
 
 torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
-# torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
