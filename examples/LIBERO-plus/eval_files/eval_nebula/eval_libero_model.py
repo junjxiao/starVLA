@@ -416,7 +416,7 @@ def eval_libero(args: Args) -> None:
     # Start evaluation
 
     total_episodes, total_successes = 0, 0
-    print(f"*****************num tasks in {args.task_suite_name}: {num_tasks_in_suite}****************")
+    print(f"*****************num tasks in {args.task_suite_name}: {num_tasks_in_suite}****************, processing from{args.start_idx} to {args.end_idx} currently*************")
     # for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
     for task_id in tqdm.tqdm(range(args.start_idx, args.end_idx)):
         
