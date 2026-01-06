@@ -24,14 +24,14 @@ task_suite_name=$1
 echo $task_suite_name
 num_trials_per_task=1
 
-# torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
-torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
+torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
+# torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
-    --output_dir $output_dir \
-    --start_idx 0 \
-    --end_idx 5
+    --output_dir $output_dir
+    # --start_idx 0 \
+    # --end_idx 5
 
 
 # # =============== 聚合结果 ===============
