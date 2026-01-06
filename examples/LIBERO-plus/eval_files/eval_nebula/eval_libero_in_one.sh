@@ -2,6 +2,7 @@
 eval "$(conda shell.bash hook)"
 # source activate
 conda activate /mnt/workspace/junjin/conda/starvla
+pip list
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 export LIBERO_HOME=/mnt/workspace/junjin/code/LIBERO-plus
