@@ -4,6 +4,7 @@ eval "$(conda shell.bash hook)"
 conda activate python3.10
 # pip install -r requirements.txt
 pip list
+ls /usr/lib64/libOSMesa.so*
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
 export LIBERO_HOME=/mnt/workspace/junjin/code/LIBERO-plus

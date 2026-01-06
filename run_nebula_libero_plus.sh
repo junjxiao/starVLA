@@ -7,7 +7,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --job_name="test_libero_plus_goal" \
                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-                  --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106154918
+                  --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus2_20260106161011
 
 # nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_10"\
@@ -18,7 +18,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --job_name="test_libero_plus_10" \
 #                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
 #                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106154918
+#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus2_20260106161011
 
 # nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_object"\
@@ -29,7 +29,7 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --job_name="test_libero_plus_object" \
 #                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
 #                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106154918
+#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus2_20260106161011
 
 # nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_spatial"\
@@ -40,4 +40,4 @@ nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --job_name="test_libero_plus_spatial" \
 #                   --nas_file_system_id=1fff449945-wau24.cn-beijing.nas.aliyuncs.com,92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
 #                   --nas_file_system_mount_path=/mnt/nas-data-5,/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_20260106154918
+#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus2_20260106161011
