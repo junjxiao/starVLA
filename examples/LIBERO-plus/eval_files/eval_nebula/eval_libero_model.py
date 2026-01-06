@@ -357,7 +357,8 @@ def eval_libero(args: Args) -> None:
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
-    
+    if args.start_idx != -1:
+        num_tasks_in_suite = args.end_idx - args.start_idx
     patch_num = num_tasks_in_suite // world_size
     if rank == world_size - 1:
         start_idx = rank * patch_num
@@ -365,9 +366,9 @@ def eval_libero(args: Args) -> None:
     else:
         start_idx = rank * patch_num
         end_idx = start_idx + patch_num
-    if args.start_idx == -1:
-        args.start_idx = start_idx
-        args.end_idx = end_idx
+
+    args.start_idx = start_idx
+    args.end_idx = end_idx
     print(f"processing tasks from {args.start_idx} to {args.end_idx}")
     # args.video_out_path = f"{date_base}+{args.job_name}"
     log_path = os.path.join(args.output_dir, f'logs/{args.task_suite_name}')
@@ -416,7 +417,7 @@ def eval_libero(args: Args) -> None:
     # Start evaluation
 
     total_episodes, total_successes = 0, 0
-    print(f"*****************num tasks in {args.task_suite_name}: {num_tasks_in_suite}****************, processing from{args.start_idx} to {args.end_idx} currently*************")
+    print(f"*****************num tasks in {args.task_suite_name}: {num_tasks_in_suite}****************, processing from{args.start_idx} to {args.end_idx}")
     # for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
     for task_id in tqdm.tqdm(range(args.start_idx, args.end_idx)):
         

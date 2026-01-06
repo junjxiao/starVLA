@@ -32,9 +32,9 @@ torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
-    --output_dir $output_dir
-    # --start_idx 0 \
-    # --end_idx 5
+    --output_dir $output_dir \
+    --start_idx 0 \
+    --end_idx 48
 
 
 # # =============== 聚合结果 ===============
