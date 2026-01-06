@@ -429,7 +429,7 @@ class Qwen_GR00TSpatial(baseframework):
         with torch.inference_mode():
             if prompt is None:
                 # prompt = "Preserve scene layout, object positions, and spatial relationships; only rotate the camera to"
-                prompt = prompts[random.randrange(1, 5)]
+                prompt = prompts[random.randrange(0, 4)]
             for image in images:
                 inputs = {
                     "image": image,
