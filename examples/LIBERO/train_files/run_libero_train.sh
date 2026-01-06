@@ -61,7 +61,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --master_port=29501\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \

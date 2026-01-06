@@ -29,6 +29,7 @@ class WebsocketPolicyServer:
         self._host = host
         self._port = port
         self._metadata = metadata or {}
+        
         logging.getLogger("websockets.server").setLevel(logging.INFO)
 
     def serve_forever(self) -> None:
@@ -95,7 +96,6 @@ class WebsocketPolicyServer:
                     "error": {"message": "Payload must be a dict", "payload_type": str(type(payload))}
                 }
             try:
-
                 ouput_dict = self._policy.predict_action(**msg)
             except Exception as e:
                 logging.exception("Policy inference error (request_id=%s)", req_id)

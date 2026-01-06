@@ -27,12 +27,22 @@ from starVLA.model.framework.share_tools import read_mode_config
 from starVLA.training.trainer_utils import initialize_overwatch
 from starVLA.model.framework.share_tools import dict_to_namespace
 from starVLA.model.framework.__init__ import build_framework
-
+# from diffusers import QwenImageEditPlusPipeline
+# from diffusers import LongCatImageEditPipeline
 logger = initialize_overwatch(__name__)
 
 
 # PreTrainedModel, AutoModel, PretrainedConfig,  are so good, find sometime to study them
 # TODO @JinhuiYE find sometime to merge yaml config with transformer config
+
+# def load_image_edit_model(config):
+#     if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
+#         image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+#     elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
+#         image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+#     else:
+#         raise NotImplementedError
+#     return image_edit_model
 
 class baseframework(PreTrainedModel):
     """
@@ -88,6 +98,7 @@ class baseframework(PreTrainedModel):
         model_config.trainer.pretrained_checkpoint = None
         # FrameworkModel = cls(config=model_config, **kwargs) # TODO find cls by config
         FrameworkModel = build_framework(cfg=model_config)
+        
         # set for action un-norm
         FrameworkModel.norm_stats = norm_stats
         # Load from Checkpoint (Custom --> should load both *projector* and *llm* weights)
@@ -96,7 +107,7 @@ class baseframework(PreTrainedModel):
         model_keys = set(FrameworkModel.state_dict().keys())
         checkpoint_keys = set(model_state_dict.keys())
         try:
-            FrameworkModel.load_state_dict(model_state_dict, strict=True)
+            FrameworkModel.load_state_dict(model_state_dict, strict=False)
         except RuntimeError as e:
             # must keep all keys matched
             common_keys = model_keys.intersection(checkpoint_keys)
@@ -108,7 +119,10 @@ class baseframework(PreTrainedModel):
                 logger.warning(f"Unexpected keys in state_dict: {unexpected_keys}")
 
             raise e
-
+        # if getattr(model_config.framework, 'image_edit_model', None) is not None:
+        #     FrameworkModel.image_edit_model = load_image_edit_model(model_config)
+        #     FrameworkModel.image_edit_model.set_progress_bar_config(disable=True)
+        #     FrameworkModel.image_edit_model.to('cuda')
         # **ensure model is on GPU**
         FrameworkModel = FrameworkModel
         return FrameworkModel

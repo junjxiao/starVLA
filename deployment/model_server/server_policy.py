@@ -9,7 +9,6 @@ from deployment.model_server.tools.websocket_policy_server import WebsocketPolic
 from starVLA.model.framework.base_framework import baseframework
 import torch, os
 
-
 def main(args) -> None:
     # Example usage:
     # policy = YourPolicyClass()  # Replace with your actual policy class
@@ -18,7 +17,7 @@ def main(args) -> None:
     vla = baseframework.from_pretrained( # TODO should auto detect framework from model path
         args.ckpt_path,
     )
-
+    
     if args.use_bf16: # False
         vla = vla.to(torch.bfloat16)
     vla = vla.to("cuda").eval()

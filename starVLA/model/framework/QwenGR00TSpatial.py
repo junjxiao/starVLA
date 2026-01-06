@@ -26,8 +26,8 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms as TF
 import cv2
-
-
+from diffusers import QwenImageEditPlusPipeline
+from diffusers import LongCatImageEditPipeline
 from starVLA.training.trainer_utils import initialize_overwatch
 from deployment.model_server.tools.image_tools import to_pil_preserve
 
@@ -383,10 +383,18 @@ class Qwen_GR00TSpatial(baseframework):
         self.spatial_model = self.get_spatial_model(config)
         self.spatial_projector = self.get_spatial_projector(config)
         if getattr(self.config.framework, 'image_edit_model', None) is not None:
+            if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
+                self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+            elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
+                self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+            else:
+                raise NotImplementedError
+            self.image_edit_model.to('cuda')
+            self.image_edit_model.set_progress_bar_config(disable=True)
             self.image_edit_projector = TokenDownsampler()
 
         if getattr(self.config.framework, 'fuser', None) is None:
-            self.config.framework.fuser = {'type':'concat'}
+            self.config.framework.fuser = {'type':'cross_attention'}
         print(self.config.framework.fuser.type)
         if self.config.framework.fuser.type == 'cross_attention':
             self.fuser = self.get_cross_attention(config)
@@ -411,7 +419,7 @@ class Qwen_GR00TSpatial(baseframework):
         projector = nn.Linear(config.framework.spatial_model.output_dim, spatial_projector_cfg.output_dim)
         return projector
 
-    def forward_pass_image_edit_model(self, image_edit_model, images, prompt=None):
+    def forward_pass_image_edit_model(self, images, prompt=None):
         output_images = []
         with torch.inference_mode():
             if prompt is None:
@@ -428,7 +436,7 @@ class Qwen_GR00TSpatial(baseframework):
                     "output_type": "latent"
                 }
                 
-                output = image_edit_model(**inputs)
+                output = self.image_edit_model(**inputs)
                 output_images.append(output.images[0].clone())
         output_image = torch.stack(output_images)
         extra_feat = self.image_edit_projector(output_image.to(self.image_edit_projector.downsample_proj[0].weight.dtype))
@@ -439,7 +447,6 @@ class Qwen_GR00TSpatial(baseframework):
     def forward(
         self,
         examples: List[dict] = None,
-        image_edit_model=None,
         **kwargs,
     ) -> Tuple:
         """
@@ -452,7 +459,8 @@ class Qwen_GR00TSpatial(baseframework):
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
-
+        import ipdb
+        ipdb.set_trace()
         # Step 1: QWenVL input format
         qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
         with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -462,22 +470,22 @@ class Qwen_GR00TSpatial(baseframework):
                 output_hidden_states=True,
                 return_dict=True,
             )    
-        # step 2: encode spatial feature
-        with torch.no_grad():
-            if self.spatial_type == "vggt":    
-                spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                
-            elif self.spatial_type == "depthanything3":
-                denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                Bs, S, N, C = feats[0][0].shape
-                spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+            # step 2: encode spatial feature
+            with torch.no_grad():
+                if self.spatial_type == "vggt":    
+                    spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                    aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                    
+                elif self.spatial_type == "depthanything3":
+                    denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                    feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                    Bs, S, N, C = feats[0][0].shape
+                    spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
         extra_latents = None
 
-        if image_edit_model is not None:
+        if getattr(self, 'image_edit_model', None) is not None:
             primary_image = [image[0] for image in batch_images]
-            extra_latents = self.forward_pass_image_edit_model(image_edit_model, primary_image)
+            extra_latents = self.forward_pass_image_edit_model(primary_image)
 
         # step 3: fuse spatial tokens and qwen tokens
         with torch.autocast("cuda", dtype=torch.float32):
@@ -561,7 +569,6 @@ class Qwen_GR00TSpatial(baseframework):
     def predict_action(
         self,
         examples: List[dict],
-        image_edit_model=None,
         **kwargs: str,
     ) -> np.ndarray:
         """
@@ -594,21 +601,21 @@ class Qwen_GR00TSpatial(baseframework):
                 return_dict=True,
             )
 
-        # step 2: encode spatial feature
-        if self.spatial_type == "vggt":    
-            spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-            aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-        elif self.spatial_type == "depthanything3":
-            denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-            feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-            Bs, S, N, C = feats[0][0].shape
-            spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
+            # step 2: encode spatial feature
+            if self.spatial_type == "vggt":    
+                spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+            elif self.spatial_type == "depthanything3":
+                denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                Bs, S, N, C = feats[0][0].shape
+                spatial_tokens = feats[-1][0].reshape(Bs*S, N, C).to(torch.bfloat16)
 
         extra_latents = None
 
-        if image_edit_model is not None:
+        if getattr(self, 'image_edit_model', None) is not None:
             primary_image = [image[0] for image in batch_images]
-            extra_latents = self.forward_pass_image_edit_model(image_edit_model, primary_image)
+            extra_latents = self.forward_pass_image_edit_model(primary_image)
         # step 3: fuse spatial tokens and qwen tokens
         with torch.autocast("cuda", dtype=torch.float32):
             if self.config.framework.fuser.type == 'concat':
