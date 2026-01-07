@@ -395,8 +395,8 @@ class Qwen_GR00TSpatial(baseframework):
                 raise NotImplementedError
             self.image_edit_model.to('cuda')
             self.image_edit_model.set_progress_bar_config(disable=True)
-            self.image_edit_projector = TokenDownsampler()
-            # self.image_edit_projector = nn.Linear(64, 2560)
+            # self.image_edit_projector = TokenDownsampler()
+            self.image_edit_projector = nn.Linear(1024, 2560)
 
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'cross_attention'}
@@ -446,7 +446,6 @@ class Qwen_GR00TSpatial(baseframework):
                 output = self.image_edit_model(**inputs)
                 output_images.append(output.images[0].clone())
         extra_feat = torch.stack(output_images)
-        # extra_feat = self.image_edit_projector(extra_feat.to(self.image_edit_projector.downsample_proj[0].weight.dtype))
         return extra_feat
         
     def forward_pass_VLM(self, batch_images, instructions):
@@ -494,6 +493,12 @@ class Qwen_GR00TSpatial(baseframework):
                     spatial_tokens = self.spatial_projector(spatial_tokens)
 
                 if extra_latents is not None:
+                    # dirty code, patchify tokens
+                    B = extra_latents.shape[0]
+                    extra_latents = extra_latents.reshape(B, 64, 64, 64)           # (B, H, W, C)
+                    extra_latents = extra_latents.reshape(B, 16, 4, 16, 4, 64)     # (B, H/4, 4, W/4, 4, C)
+                    extra_latents = extra_latents.permute(0, 1, 3, 2, 4, 5)        # (B, H/4, W/4, 4, 4, C)
+                    extra_latents = extra_latents.reshape(B, 256, 4 * 4 * 64)
                     extra_latents = self.image_edit_projector(extra_latents)
                     if spatial_tokens is not None:
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
