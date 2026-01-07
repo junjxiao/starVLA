@@ -297,7 +297,8 @@ class VLATrainer(TrainerUtils):
                 wandb.log(metrics, step=self.completed_steps)
                 # debug output
                 logger.info(f"Step {self.completed_steps}, Loss: {metrics})")
-                self.log_dict_to_tensorboard(metrics)
+        if dist.get_rank() == 0:
+            self.log_dict_to_tensorboard(metrics)
 
     def _create_data_iterators(self):
         """create data iterators"""
