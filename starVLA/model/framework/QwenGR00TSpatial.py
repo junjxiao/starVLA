@@ -444,8 +444,8 @@ class Qwen_GR00TSpatial(baseframework):
                 
                 output = self.image_edit_model(**inputs)
                 output_images.append(output.images[0].clone())
-        output_image = torch.stack(output_images)
-        # extra_feat = self.image_edit_projector(output_image.to(self.image_edit_projector.downsample_proj[0].weight.dtype))
+        extra_feat = torch.stack(output_images)
+        # extra_feat = self.image_edit_projector(extra_feat.to(self.image_edit_projector.downsample_proj[0].weight.dtype))
         return extra_feat
         
     def forward_pass_VLM(self, batch_images, instructions):
