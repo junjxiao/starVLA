@@ -32,7 +32,7 @@ from accelerate.utils import set_seed
 from omegaconf import OmegaConf
 from tqdm import tqdm
 from transformers import AutoProcessor, get_scheduler
-
+from torch.utils.tensorboard import SummaryWriter
 # Local Modules
 from starVLA.training.trainer_utils.trainer_tools import normalize_dotlist_args
 from starVLA.model.framework import build_framework
@@ -207,6 +207,7 @@ class VLATrainer(TrainerUtils):
                 entity=self.config.wandb_entity,
                 group="vla-train",
             )
+            self.writer = SummaryWriter(log_dir=os.path.join(self.config.output_dir, "logs"))
 
     def _init_checkpointing(self):
         """initialize checkpoint directory"""
@@ -258,6 +259,30 @@ class VLATrainer(TrainerUtils):
             self.accelerator.print(f"✅ Checkpoint saved at {checkpoint_path}")
         self.accelerator.wait_for_everyone()
 
+
+    def log_dict_to_tensorboard(self, metrics_dict, prefix=""):
+        """
+        将字典数据记录到 TensorBoard
+        
+        Args:
+            metrics_dict: 要记录的字典
+            prefix: 可选的前缀（如 "train/", "val/"）
+        """
+        for key, value in metrics_dict.items():
+            # 处理嵌套字典
+            if isinstance(value, dict):
+                nested_prefix = f"{prefix}{key}/" if prefix else f"{key}/"
+                log_dict_to_tensorboard(self.writer, value, self.completed_steps, nested_prefix)
+            # 处理标量值
+            elif isinstance(value, (int, float, torch.Tensor)):
+                tensor_value = value.item() if isinstance(value, torch.Tensor) else value
+                tag = f"{prefix}{key}" if prefix else key
+                self.writer.add_scalar(tag, tensor_value, self.completed_steps)
+            # 处理其他类型（可选）
+            else:
+                print(f"Warning: Skipping non-scalar value for key {key}")
+
+
     def _log_metrics(self, metrics):
         """record training metrics"""
         if self.completed_steps % self.config.trainer.logging_frequency == 0:
@@ -272,6 +297,7 @@ class VLATrainer(TrainerUtils):
                 wandb.log(metrics, step=self.completed_steps)
                 # debug output
                 logger.info(f"Step {self.completed_steps}, Loss: {metrics})")
+                self.log_dict_to_tensorboard(metrics)
 
     def _create_data_iterators(self):
         """create data iterators"""
@@ -338,6 +364,7 @@ class VLATrainer(TrainerUtils):
             step_metrics["data_time"] = t_end_data - t_start_data
             step_metrics["model_time"] = t_end_model - t_start_model
             self._log_metrics(step_metrics)
+            
 
             # save checkpoint
             if self.completed_steps % self.config.trainer.save_interval == 0 and self.completed_steps > 0:
