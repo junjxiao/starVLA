@@ -195,16 +195,16 @@ class TokenDownsampler(nn.Module):
         
         return output_tokens
 # prompt = "Preserve scene layout, object positions, and spatial relationships; only slightly adjust camera viewpoint, background color, and lighting."
-prompt = "Preserve scene layout, object positions, and spatial relationships; only rotate the camera 5 degree to left, and slightly adjust background color and scene lighting."
+prompt = 'Rotate the camera upward by 5 degrees, as if looking slightly toward the sky. Keep all objects and lighting consistent, only change the viewing angle to show more of the top surfaces and less of the ground.'
 inputs = {
     "image": image1,
     "prompt": prompt,
     "generator": torch.Generator("cpu").manual_seed(43),
     "negative_prompt": " ",
-    "num_inference_steps": 1,
+    "num_inference_steps": 50,
     "guidance_scale": 4.5,
     "num_images_per_prompt": 1,
-    "output_type": "latent", #latent
+    "output_type": "pil", #latent
 }
 
 # projector = TokenDownsampler().to('cuda',torch.bfloat16)

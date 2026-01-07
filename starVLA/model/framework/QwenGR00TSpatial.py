@@ -395,7 +395,8 @@ class Qwen_GR00TSpatial(baseframework):
                 raise NotImplementedError
             self.image_edit_model.to('cuda')
             self.image_edit_model.set_progress_bar_config(disable=True)
-            # self.image_edit_projector = TokenDownsampler()
+            self.image_edit_projector = TokenDownsampler()
+            # self.image_edit_projector = nn.Linear(64, 2560)
 
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'cross_attention'}
@@ -493,6 +494,7 @@ class Qwen_GR00TSpatial(baseframework):
                     spatial_tokens = self.spatial_projector(spatial_tokens)
 
                 if extra_latents is not None:
+                    extra_latents = self.image_edit_projector(extra_latents)
                     if spatial_tokens is not None:
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
                     else:
