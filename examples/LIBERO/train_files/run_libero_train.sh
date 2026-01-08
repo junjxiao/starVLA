@@ -80,8 +80,9 @@ CUDA_VISIBLE_DEVICES=2 torchrun --nproc_per_node=1\
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
+  --framework.spatial_model null \
   --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0102_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs8/checkpoints/steps_17000_pytorch_model.pt
-  # --framework.image_edit_model null \
+  
   # --is_debug True
 
 
