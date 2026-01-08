@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0106_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16
+run_id=0108_liberoall_Qwen3vlGR00T_vggt_no_longcat_image_edit_cross_bs16
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.use_mv_images False \
@@ -22,7 +22,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --trainer.is_resume false \
       --framework.fuser.type cross_attention \
-      --framework.spatial_model null
+      --framework.image_edit_model null
       "
       # --trainer.resume_from_checkpoint null \
 
@@ -38,7 +38,7 @@ echo ""
 nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
-                  --worker_count=32 \
+                  --worker_count=16 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \

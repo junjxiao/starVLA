@@ -12,8 +12,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 host="127.0.0.1"
 base_port=9879
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0106_liberoall_Qwen3vlGR00T_vggt_no_longcat_image_edit_cross_bs16/checkpoints/steps_3000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0106_liberoall_Qwen3vlGR00T_vggt_no_longcat_image_edit_cross_bs16_step3000
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0106_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_1000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0106_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16_step1000
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
 ###########################################################################################
@@ -36,7 +36,7 @@ CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero
     --args.task-suite-name "$task_suite_name" \
     --args.num-trials-per-task "$num_trials_per_task" \
     --args.video-out-path "$video_out_path" \
-    2>&1 | tee "${log_file}" &
+    2>&1 | tee "${log_file}"
 
 
 ##########  eval libero_spatial ##########
