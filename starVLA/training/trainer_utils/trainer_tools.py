@@ -250,7 +250,7 @@ class TrainerUtils:
                     print(f"❌ cannot find module path: {path}")
         else:  # full load
             try:
-                model.load_state_dict(checkpoint, strict=True)
+                model.load_state_dict(checkpoint, strict=False)
                 if dist.get_rank() == 0:
                     print("✅ loaded <full_model> model parameters")
                 loaded_modules = ["<full_model>"]

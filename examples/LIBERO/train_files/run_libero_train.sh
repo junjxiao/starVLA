@@ -12,7 +12,7 @@
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
-freeze_module_list="qwen_vl_interface.model,spatial_model"
+freeze_module_list="spatial_model"
 
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
@@ -61,7 +61,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=2 torchrun --nproc_per_node=1\
   --master_port=29501\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
@@ -80,7 +80,8 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
-
+  --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0102_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs8/checkpoints/steps_17000_pytorch_model.pt
+  # --framework.image_edit_model null \
   # --is_debug True
 
 
