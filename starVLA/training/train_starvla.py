@@ -154,6 +154,7 @@ class VLATrainer(TrainerUtils):
         #     self.image_edit_model.to('cuda')
 
     def prepare_training(self):
+
         rank = dist.get_rank() if dist.is_initialized() else 0
         seed = self.config.seed + rank if hasattr(self.config, "seed") else rank + 3047
         set_seed(seed)
@@ -164,6 +165,7 @@ class VLATrainer(TrainerUtils):
             reload_modules = (
                 self.config.trainer.reload_modules if hasattr(self.config.trainer, "reload_modules") else None
             )
+
             self.model = self.load_pretrained_backbones(self.model, pretrained_checkpoint, reload_modules=reload_modules)
 
         # freeze parameters
@@ -172,6 +174,7 @@ class VLATrainer(TrainerUtils):
             if (self.config and hasattr(self.config.trainer, "freeze_modules"))
             else None
         )
+        
         self.model = self.freeze_backbones(self.model, freeze_modules=freeze_modules)
 
         #  print model trainable parameters:
@@ -334,6 +337,9 @@ class VLATrainer(TrainerUtils):
 
         # main training loop
         while self.completed_steps < self.config.trainer.max_train_steps:
+            # if self.completed_steps >= 1000:
+            #     import ipdb
+            #     ipdb.set_trace()
             # get data batch
             t_start_data = time.perf_counter()
             batch_vla = self._get_next_batch()
@@ -490,6 +496,7 @@ def main(cfg) -> None:
     output_dir = setup_directories(cfg=cfg)
     # build model
     vla = build_framework(cfg)
+
     # prepare data
     vla_train_dataloader = prepare_data(cfg=cfg, accelerator=accelerator, output_dir=output_dir)
     

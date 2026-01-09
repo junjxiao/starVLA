@@ -250,8 +250,10 @@ class TrainerUtils:
                     print(f"❌ cannot find module path: {path}")
         else:  # full load
             try:
-                model.load_state_dict(checkpoint, strict=False)
+                missing_keys, unexpected_keys = model.load_state_dict(checkpoint, strict=False)
                 if dist.get_rank() == 0:
+                    print(f"missing keys: {missing_keys}")
+                    print(f"unexpected_keys: {unexpected_keys}")
                     print("✅ loaded <full_model> model parameters")
                 loaded_modules = ["<full_model>"]
             except Exception as e:

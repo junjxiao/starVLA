@@ -12,8 +12,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 host="127.0.0.1"
 base_port=9879
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0106_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_1000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0106_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16_step1000
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_1000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16_step1000
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
 ###########################################################################################
@@ -43,51 +43,51 @@ CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero
 
 # set it in background to run multiple evals in parallel with &
 
-task_suite_name=libero_spatial
-num_trials_per_task=50
-video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
-log_file="${LOG_DIR}/${task_suite_name}.log"
+# task_suite_name=libero_spatial
+# num_trials_per_task=50
+# video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
+# log_file="${LOG_DIR}/${task_suite_name}.log"
 
-CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
-    --args.pretrained-path ${your_ckpt} \
-    --args.host "$host" \
-    --args.port $base_port \
-    --args.task-suite-name "$task_suite_name" \
-    --args.num-trials-per-task "$num_trials_per_task" \
-    --args.video-out-path "$video_out_path" \
-    2>&1 | tee "${log_file}" &
-
-
-##########  eval libero_object ##########
-
-task_suite_name=libero_object
-num_trials_per_task=50
-video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
-log_file="${LOG_DIR}/${task_suite_name}.log"
-
-CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
-    --args.pretrained-path ${your_ckpt} \
-    --args.host "$host" \
-    --args.port $base_port \
-    --args.task-suite-name "$task_suite_name" \
-    --args.num-trials-per-task "$num_trials_per_task" \
-    --args.video-out-path "$video_out_path" \
-    2>&1 | tee "${log_file}" &
+# CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
+#     --args.pretrained-path ${your_ckpt} \
+#     --args.host "$host" \
+#     --args.port $base_port \
+#     --args.task-suite-name "$task_suite_name" \
+#     --args.num-trials-per-task "$num_trials_per_task" \
+#     --args.video-out-path "$video_out_path" \
+#     2>&1 | tee "${log_file}" &
 
 
+# ##########  eval libero_object ##########
 
-##########  eval libero_long ##########
+# task_suite_name=libero_object
+# num_trials_per_task=50
+# video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
+# log_file="${LOG_DIR}/${task_suite_name}.log"
 
-task_suite_name=libero_10
-num_trials_per_task=50
-video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
-log_file="${LOG_DIR}/${task_suite_name}.log"
+# CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
+#     --args.pretrained-path ${your_ckpt} \
+#     --args.host "$host" \
+#     --args.port $base_port \
+#     --args.task-suite-name "$task_suite_name" \
+#     --args.num-trials-per-task "$num_trials_per_task" \
+#     --args.video-out-path "$video_out_path" \
+#     2>&1 | tee "${log_file}" &
 
-CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
-    --args.pretrained-path ${your_ckpt} \
-    --args.host "$host" \
-    --args.port $base_port \
-    --args.task-suite-name "$task_suite_name" \
-    --args.num-trials-per-task "$num_trials_per_task" \
-    --args.video-out-path "$video_out_path" \
-    2>&1 | tee "${log_file}" &
+
+
+# ##########  eval libero_long ##########
+
+# task_suite_name=libero_10
+# num_trials_per_task=50
+# video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
+# log_file="${LOG_DIR}/${task_suite_name}.log"
+
+# CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
+#     --args.pretrained-path ${your_ckpt} \
+#     --args.host "$host" \
+#     --args.port $base_port \
+#     --args.task-suite-name "$task_suite_name" \
+#     --args.num-trials-per-task "$num_trials_per_task" \
+#     --args.video-out-path "$video_out_path" \
+#     2>&1 | tee "${log_file}" &

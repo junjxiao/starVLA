@@ -448,7 +448,7 @@ class Qwen_GR00TSpatial(baseframework):
         return extra_feat
         
     def forward_pass_VLM(self, batch_images, instructions):
-        
+
         # Step 1: QWenVL input format
         qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
         with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -629,8 +629,7 @@ class Qwen_GR00TSpatial(baseframework):
         last_hidden = self.forward_pass_VLM(batch_images, instructions)
 
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
-        # import ipdb
-        # ipdb.set_trace()
+
         # Step 4: Action Expert Forward
         with torch.autocast("cuda", dtype=torch.float32):
             pred_actions = self.action_model.predict_action(last_hidden, state)  # (B, chunk_len, action_dim)
