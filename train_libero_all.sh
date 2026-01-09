@@ -11,7 +11,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --datasets.vla_data.data_mix libero_all \
       --datasets.vla_data.per_device_batch_size 4 \
       --trainer.vla_data.video_backend torchvision_av \
-      --trainer.freeze_modules 'spatial_model' \
+      --trainer.freeze_modules 'spatial_model,qwen_vl_interface.model' \
       --trainer.max_train_steps 20000 \
       --trainer.save_interval 1000 \
       --trainer.logging_frequency 100 \
