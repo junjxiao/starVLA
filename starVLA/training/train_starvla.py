@@ -238,6 +238,7 @@ class VLATrainer(TrainerUtils):
             # save model state
             state_dict = self.accelerator.get_state_dict(self.model)
             print(state_dict['action_model.model.transformer_blocks.13.attn1.to_q.weight'])
+            print(self.model.state_dict()['module.action_model.model.transformer_blocks.13.attn1.to_q.weight'])
             # 处理要排除的模块列表
             excluded_modules = []
             if self.config and hasattr(self.config.trainer, "freeze_modules"):
@@ -251,6 +252,7 @@ class VLATrainer(TrainerUtils):
                     k: v for k, v in state_dict.items()
                     if not any(k.startswith(module + ".") for module in excluded_modules)
                 }
+            print(filtered_state_dict['action_model.model.transformer_blocks.13.attn1.to_q.weight'])
             torch.save(filtered_state_dict, checkpoint_path + "_pytorch_model.pt")
 
             # save training metadata
