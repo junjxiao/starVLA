@@ -1,12 +1,14 @@
 import os
 import torch
 from PIL import Image
-from diffusers import LongCatImageEditPipeline
+# from diffusers import LongCatImageEditPipeline
 import requests
 import torch
 import torch.nn as nn
 import time
-pipeline = LongCatImageEditPipeline.from_pretrained("/mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit", torch_dtype= torch.bfloat16)
+from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
+pipeline = LongCatImageEditModel.from_pretrained("/mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit", torch_dtype= torch.bfloat16)
+# pipeline = LongCatImageEditPipeline.from_pretrained("/mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit", torch_dtype= torch.bfloat16)
 # pipeline = QwenImageEditPlusPipeline.from_pretrained("/mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2511", torch_dtype=torch.bfloat16)
 # del pipeline.vae.decoder
 # del pipeline.vae.post_quant_conv
@@ -16,9 +18,11 @@ print("pipeline loaded")
 # pipeline.enable_model_cpu_offload()
 # pipeline.load_lora_weights("/mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2511-Lightning", weight_name='Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors')
 pipeline.to('cuda')
-pipeline.set_progress_bar_config(disable=None)
+# pipeline.set_progress_bar_config(disable=None)
 image1 = Image.open('a.jpg')
 image2 = Image.open('b.jpg')
+image1 = image1.resize((224, 224))
+image2 = image2.resize((224, 224))
 # prompt = "保持场景和物体的几何、布局等不变，将相机的视角向左旋转10度。"
 # inputs = {
 #     "image": [image1],
@@ -197,26 +201,24 @@ class TokenDownsampler(nn.Module):
 # prompt = "Preserve scene layout, object positions, and spatial relationships; only slightly adjust camera viewpoint, background color, and lighting."
 prompt = 'Rotate the camera upward by 5 degrees, as if looking slightly toward the sky. Keep all objects and lighting consistent, only change the viewing angle to show more of the top surfaces and less of the ground.'
 inputs = {
-    "image": image1,
-    "prompt": prompt,
-    "generator": torch.Generator("cpu").manual_seed(43),
-    "negative_prompt": " ",
-    "num_inference_steps": 50,
+    "images": [image1, image2],
+    "prompts": [prompt] * 2,
+    "generator": torch.Generator("cuda").manual_seed(43),
+    "num_inference_steps": 4,
     "guidance_scale": 4.5,
-    "num_images_per_prompt": 1,
     "output_type": "pil", #latent
+    "device": 'cuda'
 }
 
 # projector = TokenDownsampler().to('cuda',torch.bfloat16)
-import ipdb
-ipdb.set_trace()
+
 
 with torch.inference_mode():
     start = time.time()
     output = pipeline(**inputs)
-    
+    import ipdb
+    ipdb.set_trace()
     # latents = projector(output.images)
-    print(f"model time: {time.time - start}")
-    output.images[0].save("output_image_edit_2511_1.png")
-    output.images[1].save("output_image_edit_2511_2.png")
+    output[0].save("a_out.jpg")
+    output[1].save("b_out.jpg")
 

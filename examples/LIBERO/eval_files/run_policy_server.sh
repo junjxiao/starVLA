@@ -1,6 +1,6 @@
 #!/bin/bash
 
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_1000_pytorch_model.pt
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs1_test1/checkpoints/steps_5000_pytorch_model.pt
 base_port=9879
 export star_vla_python=/mnt/workspace/junjin/conda/starvla/bin/python
 

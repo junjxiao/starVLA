@@ -26,8 +26,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms as TF
 import cv2
-from diffusers import QwenImageEditPlusPipeline
-from diffusers import LongCatImageEditPipeline
+
 from starVLA.training.trainer_utils import initialize_overwatch
 from deployment.model_server.tools.image_tools import to_pil_preserve
 
@@ -43,7 +42,9 @@ from starVLA.training.trainer_utils.trainer_tools import resize_images
 from starVLA.model.tools import FRAMEWORK_REGISTRY
 
 from vggt.models.vggt import VGGT
+from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
 from diffusers import QwenImageEditPlusPipeline
+# from diffusers import LongCatImageEditPipeline
 from starVLA.model.modules.projector.QFormer import get_layerwise_qformer
 import random
 
@@ -390,11 +391,12 @@ class Qwen_GR00TSpatial(baseframework):
             if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
                 self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
             elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
-                self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
             else:
                 raise NotImplementedError
-            self.image_edit_model.to('cuda')
-            self.image_edit_model.set_progress_bar_config(disable=True)
+            # self.image_edit_model.to('cuda')
+            # self.image_edit_model.set_progress_bar_config(disable=True)
             # self.image_edit_projector = TokenDownsampler()
             self.image_edit_projector = nn.Linear(1024, 2560)
 
@@ -425,27 +427,23 @@ class Qwen_GR00TSpatial(baseframework):
         return projector
 
     def forward_pass_image_edit_model(self, images, prompt=None):
-        output_images = []
         prompts = ['Rotate the camera upward by 5 degrees, as if looking slightly toward the sky. Keep all objects and lighting consistent, only change the viewing angle to show more of the top surfaces and less of the ground.', 'Tilt the camera downward by 5 degrees, as if looking slightly toward the floor. Maintain the same scene and illumination, but reveal more of the ground or tabletop while showing less of the upper areas.', 'Pan the camera 5 degrees to the left, rotating horizontally around the vertical axis. Preserve all object positions and lighting; only shift the viewpoint so that more of the right side of the scene becomes visible and the left edge moves out of frame.', 'Pan the camera 5 degrees to the right, rotating horizontally around the vertical axis. Keep the original composition intact except for the viewpoint: show more of the left side of the scene and crop slightly from the right edge.']
-        with torch.inference_mode():
-                
-            for image in images:
+        with torch.no_grad():
+            with torch.autocast("cuda", dtype=torch.bfloat16):
                 prompt = prompts[random.randrange(0, 4)]
+
                 inputs = {
-                    "image": image,
-                    "prompt": prompt,
-                    "generator": torch.manual_seed(0),
-                    "negative_prompt": " ",
+                    "images": images,
+                    "prompts": [prompt] * len(images),
+                    "generator": torch.Generator("cuda").manual_seed(43),
                     "num_inference_steps": 1,
                     "guidance_scale": 4.5,
-                    "num_images_per_prompt": 1,
-                    "output_type": "latent"
+                    "output_type": "latent",
+                    "device": 'cuda',
                 }
                 
                 output = self.image_edit_model(**inputs)
-                output_images.append(output.images[0].clone())
-        extra_feat = torch.stack(output_images)
-        return extra_feat
+        return output
         
     def forward_pass_VLM(self, batch_images, instructions):
 
@@ -574,8 +572,7 @@ class Qwen_GR00TSpatial(baseframework):
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
         last_hidden = self.forward_pass_VLM(batch_images, instructions)
-        # import ipdb
-        # ipdb.set_trace()
+
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
             actions = torch.tensor(
@@ -595,9 +592,11 @@ class Qwen_GR00TSpatial(baseframework):
                     np.array(state), device=last_hidden.device, dtype=last_hidden.dtype
                 )
                 state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
-
+            # import ipdb
+            # ipdb.set_trace()
             action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
-        
+            # action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)
+            # action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)
         return {"action_loss": action_loss}
 
     @torch.inference_mode()
@@ -629,7 +628,8 @@ class Qwen_GR00TSpatial(baseframework):
         last_hidden = self.forward_pass_VLM(batch_images, instructions)
 
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
-
+        # import ipdb
+        # ipdb.set_trace()
         # Step 4: Action Expert Forward
         with torch.autocast("cuda", dtype=torch.float32):
             pred_actions = self.action_model.predict_action(last_hidden, state)  # (B, chunk_len, action_dim)
