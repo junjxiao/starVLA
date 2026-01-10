@@ -574,7 +574,8 @@ class Qwen_GR00TSpatial(baseframework):
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
         last_hidden = self.forward_pass_VLM(batch_images, instructions)
-        
+        # import ipdb
+        # ipdb.set_trace()
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
             actions = torch.tensor(
@@ -596,8 +597,7 @@ class Qwen_GR00TSpatial(baseframework):
                 state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
 
             action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
-        # import ipdb
-        # ipdb.set_trace()
+
         return {"action_loss": action_loss}
 
     @torch.inference_mode()
@@ -710,4 +710,4 @@ if __name__ == "__main__":
     model(batch)
 
     action = model.predict_action(examples=batch)
-    print("Finishe
+    print("Finished")
