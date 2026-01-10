@@ -597,7 +597,7 @@ class Qwen_GR00TSpatial(baseframework):
 
             action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
         # import ipdb
-        # ipdb.set_trace()
+        # ipdb.set_trace
         return {"action_loss": action_loss}
 
     @torch.inference_mode()
@@ -710,4 +710,4 @@ if __name__ == "__main__":
     model(batch)
 
     action = model.predict_action(examples=batch)
-    print("Finishe
+    print("Finished")
