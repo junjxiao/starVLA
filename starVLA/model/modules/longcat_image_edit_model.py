@@ -289,6 +289,8 @@ class LongCatImageEditModel(nn.Module):
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         output_type: str = "pil",  # "pil" or "tensor"
         device = None,
+        width = 512,
+        height = 512,
     ) -> Union[List[Image.Image], torch.Tensor]:
         # Normalize inputs
         if isinstance(prompts, str):
@@ -316,7 +318,8 @@ class LongCatImageEditModel(nn.Module):
             assert len(images) == batch_size
             orig_sizes = [img.size for img in images]
             ratios = [w / h for w, h in orig_sizes]
-            target_area = 1024 * 1024
+            # target_area = 1024 * 1024
+            target_area = height * width
             dims = [calculate_dimensions(target_area, r) for r in ratios]
             widths, heights = zip(*dims)
 

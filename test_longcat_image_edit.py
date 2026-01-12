@@ -204,10 +204,12 @@ inputs = {
     "images": [image1, image2],
     "prompts": [prompt] * 2,
     "generator": torch.Generator("cuda").manual_seed(43),
-    "num_inference_steps": 4,
-    "guidance_scale": 4.5,
+    "num_inference_steps": 8,
+    "guidance_scale": 1.0,
     "output_type": "pil", #latent
-    "device": 'cuda'
+    "device": 'cuda',
+    'width': 256,
+    'height': 256
 }
 
 # projector = TokenDownsampler().to('cuda',torch.bfloat16)
