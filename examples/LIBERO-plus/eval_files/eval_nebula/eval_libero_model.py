@@ -357,16 +357,18 @@ def eval_libero(args: Args) -> None:
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
-    if args.start_idx != -1:
-        num_tasks_in_suite = args.end_idx - args.start_idx
-    patch_num = num_tasks_in_suite // world_size
-    if rank == world_size - 1:
-        start_idx = rank * patch_num
+    # if args.start_idx != -1:
+    #     num_tasks_in_suite = args.end_idx - args.start_idx
+    # patch_num = num_tasks_in_suite // world_size
+    # if rank == world_size - 1:
+    #     start_idx = rank * patch_num
+    #     end_idx = num_tasks_in_suite
+    # else:
+    #     start_idx = rank * patch_num
+    #     end_idx = start_idx + patch_num
+    if start_idx == -1:
+        start_idx = 0
         end_idx = num_tasks_in_suite
-    else:
-        start_idx = rank * patch_num
-        end_idx = start_idx + patch_num
-
     args.start_idx = start_idx
     args.end_idx = end_idx
     print(f"processing tasks from {args.start_idx} to {args.end_idx}")

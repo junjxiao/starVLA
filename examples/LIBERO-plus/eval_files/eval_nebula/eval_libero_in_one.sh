@@ -21,10 +21,9 @@ output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/0104_libero4in
 # === End of environment variable configuration ===
 ###########################################################################################
 
-
-base_port=9882
 task_suite_name=$1
-echo $task_suite_name
+start_idx=$2
+end_idx=$3
 num_trials_per_task=1
 # torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
 
@@ -32,9 +31,9 @@ torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
-    --output_dir $output_dir 
-    # --start_idx 0 \
-    # --end_idx 48
+    --output_dir $output_dir \
+    --start_idx $start_idx \
+    --end_idx $end_idx
 
 
 # # =============== 聚合结果 ===============
