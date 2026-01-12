@@ -39,7 +39,7 @@ echo "${ENVS}"
 echo ""
 
 #amap_app_common_h20_nm125
-nebulactl run mdl --queue=amap_app_common_h20_na175 \
+nebulactl run mdl --queue=amap_app_common_h20_nm125 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
                   --worker_count=32 \
