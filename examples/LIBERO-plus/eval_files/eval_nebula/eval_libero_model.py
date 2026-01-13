@@ -366,11 +366,11 @@ def eval_libero(args: Args) -> None:
     # else:
     #     start_idx = rank * patch_num
     #     end_idx = start_idx + patch_num
-    if start_idx == -1:
-        start_idx = 0
-        end_idx = num_tasks_in_suite
-    args.start_idx = start_idx
-    args.end_idx = end_idx
+    if args.start_idx == -1:
+        args.start_idx = 0
+        args.end_idx = num_tasks_in_suite
+    # args.start_idx = start_idx
+    # args.end_idx = end_idx
     print(f"processing tasks from {args.start_idx} to {args.end_idx}")
     # args.video_out_path = f"{date_base}+{args.job_name}"
     log_path = os.path.join(args.output_dir, f'logs/{args.task_suite_name}')
