@@ -392,13 +392,13 @@ class Qwen_GR00TSpatial(baseframework):
                 self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
             elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
                 # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-                self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, lora_path=config.framework.image_edit_model.lora_path, torch_dtype=torch.bfloat16)
             else:
                 raise NotImplementedError
             # self.image_edit_model.to('cuda')
             # self.image_edit_model.set_progress_bar_config(disable=True)
             # self.image_edit_projector = TokenDownsampler()
-            self.image_edit_projector = nn.Linear(1024, 2560)
+            self.image_edit_projector = nn.Linear(64, 2560)
 
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'cross_attention'}
@@ -427,19 +427,19 @@ class Qwen_GR00TSpatial(baseframework):
         return projector
 
     def forward_pass_image_edit_model(self, images, prompt=None):
-        prompts = ['Rotate the camera upward by 5 degrees, as if looking slightly toward the sky. Keep all objects and lighting consistent, only change the viewing angle to show more of the top surfaces and less of the ground.', 'Tilt the camera downward by 5 degrees, as if looking slightly toward the floor. Maintain the same scene and illumination, but reveal more of the ground or tabletop while showing less of the upper areas.', 'Pan the camera 5 degrees to the left, rotating horizontally around the vertical axis. Preserve all object positions and lighting; only shift the viewpoint so that more of the right side of the scene becomes visible and the left edge moves out of frame.', 'Pan the camera 5 degrees to the right, rotating horizontally around the vertical axis. Keep the original composition intact except for the viewpoint: show more of the left side of the scene and crop slightly from the right edge.']
+        prompts = ['Rotate the camera view to the left', 'Rotate the camera view to the right']
         with torch.no_grad():
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                prompt = prompts[random.randrange(0, 4)]
-
                 inputs = {
                     "images": images,
-                    "prompts": [prompt] * len(images),
+                    "prompts": random.choices(prompts, k=len(images)),
                     "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 1,
-                    "guidance_scale": 4.5,
+                    "num_inference_steps": 4,
+                    "guidance_scale": 1.0,
                     "output_type": "latent",
                     "device": 'cuda',
+                    'height': 256,
+                    'width': 256,
                 }
                 
                 output = self.image_edit_model(**inputs)
@@ -492,11 +492,13 @@ class Qwen_GR00TSpatial(baseframework):
 
                 if extra_latents is not None:
                     # dirty code, patchify tokens
-                    B = extra_latents.shape[0]
-                    extra_latents = extra_latents.reshape(B, 64, 64, 64)           # (B, H, W, C)
-                    extra_latents = extra_latents.reshape(B, 16, 4, 16, 4, 64)     # (B, H/4, 4, W/4, 4, C)
-                    extra_latents = extra_latents.permute(0, 1, 3, 2, 4, 5)        # (B, H/4, W/4, 4, 4, C)
-                    extra_latents = extra_latents.reshape(B, 256, 4 * 4 * 64)
+                    # B = extra_latents.shape[0]
+                    # extra_latents = extra_latents.reshape(B, 64, 64, 64)           # (B, H, W, C)
+                    # extra_latents = extra_latents.reshape(B, 16, 4, 16, 4, 64)     # (B, H/4, 4, W/4, 4, C)
+                    # extra_latents = extra_latents.permute(0, 1, 3, 2, 4, 5)        # (B, H/4, W/4, 4, 4, C)
+                    # extra_latents = extra_latents.reshape(B, 256, 4 * 4 * 64)
+                    # import ipdb
+                    # ipdb.set_trace()
                     extra_latents = self.image_edit_projector(extra_latents)
                     if spatial_tokens is not None:
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)

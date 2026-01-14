@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import List, Union
 import os
 from PIL import Image
-
+from peft import PeftModel
 
 def split_quotation(prompt_list, quote_pairs=None):
     results = []
@@ -416,6 +416,7 @@ class LongCatImageEditModel(nn.Module):
     def from_pretrained(
         cls,
         pretrained_model_path: Union[str, os.PathLike],
+        lora_path: Union[str, os.PathLike] = None,
         torch_dtype: Optional[torch.dtype] = None,
         device: Union[str, torch.device] = "cpu",
         subfolder: Optional[str] = None,
@@ -463,7 +464,8 @@ class LongCatImageEditModel(nn.Module):
             torch_dtype=torch_dtype,
             **kwargs
         )
-
+        if lora_path is not None:
+            transformer = cls.load_lora(lora_path, transformer)
         # 3. Load Text Encoder (Qwen2-VL)
         text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             pretrained_model_path / "text_encoder",
@@ -513,3 +515,9 @@ class LongCatImageEditModel(nn.Module):
         )
 
         return model
+    
+    @classmethod
+    def load_lora(cls, lora_model_name, transformer):
+        transformer = PeftModel.from_pretrained(transformer, lora_model_name)
+        transformer = transformer.merge_and_unload()
+        return transformer

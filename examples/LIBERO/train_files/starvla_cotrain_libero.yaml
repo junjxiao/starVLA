@@ -60,6 +60,7 @@ framework:
   image_edit_model:
     # model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
     model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit
+    lora_path: /mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000
 
 datasets:
   vlm_data:

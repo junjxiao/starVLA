@@ -12,7 +12,7 @@
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
-freeze_module_list="qwen_vl_interface.model,spatial_model"
+freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
@@ -28,7 +28,7 @@ export WANDB_MODE=offline
 export CUDA_HOME=/usr/local/cuda-12
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export PATH=$CUDA_HOME/bin:$PATH
-export PATH="$HOME/.local/bin:$PATH"
+# export PATH="$HOME/.local/bin:$PATH"
 export HF_HOME=/mnt/workspace/yangyandan/cache/huggingface 
 export HF_ENDPOINT=https://hf-mirror.com 
 export CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints
@@ -61,7 +61,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=2 torchrun --nproc_per_node=1\
   --master_port=29502\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
@@ -75,7 +75,7 @@ CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1\
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 100000 \
   --trainer.save_interval 100 \
-  --trainer.logging_frequency 10 \
+  --trainer.logging_frequency 1 \
   --trainer.eval_interval 1 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \

@@ -220,7 +220,7 @@ def eval_libero(args: Args) -> None:
                 pathlib.Path(args.video_out_path)
                 / f"rollout_{task_segment}_episode{episode_idx}_{suffix}.mp4",
                 [np.asarray(x) for x in replay_images],
-                fps=10,
+                fps=25,
             )
             
             full_actions = np.stack(full_actions)
