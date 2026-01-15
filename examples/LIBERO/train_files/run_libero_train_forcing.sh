@@ -28,7 +28,7 @@ export WANDB_MODE=offline
 export CUDA_HOME=/usr/local/cuda-12
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export PATH=$CUDA_HOME/bin:$PATH
-export PATH="$HOME/.local/bin:$PATH"
+# export PATH="$HOME/.local/bin:$PATH"
 export HF_HOME=/mnt/workspace/yangyandan/cache/huggingface 
 export HF_ENDPOINT=https://hf-mirror.com 
 export CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints
@@ -61,7 +61,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=2 torchrun --nproc_per_node=1\
   --master_port=29502\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \

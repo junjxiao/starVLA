@@ -99,12 +99,13 @@ class LayerwiseQFormer(nn.Module):
 
         # Expand query tokens for each batch
         query = self.query_tokens.unsqueeze(0).expand(B, -1, -1)  # [B, Q, D]
-
+        hidden_states = []
         # Iterate through each layer and apply cross-attention
         for i, layer in enumerate(self.layers):
             query = layer(query, hidden_states_list[i], encoder_attention_mask)
+            hidden_states.append(query)
 
-        return query
+        return query, hidden_states
 
     def scale_hook(self, hidden_states_list, scale_factor=0.1):
         """

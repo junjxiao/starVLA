@@ -28,7 +28,6 @@ export WANDB_MODE=offline
 export CUDA_HOME=/usr/local/cuda-12
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export PATH=$CUDA_HOME/bin:$PATH
-# export PATH="$HOME/.local/bin:$PATH"
 export HF_HOME=/mnt/workspace/yangyandan/cache/huggingface 
 export HF_ENDPOINT=https://hf-mirror.com 
 export CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints

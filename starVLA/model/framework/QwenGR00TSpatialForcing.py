@@ -457,37 +457,10 @@ class Qwen_GR00TSpatialForcing(baseframework):
                 output_attentions=False,
                 output_hidden_states=True,
                 return_dict=True,
-            )    
-            if getattr(self, 'spatial_model', None) is not None:
-                # step 2: encode spatial feature
-                with torch.no_grad():
-                    if self.spatial_type == "vggt":    
-                        spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
-                        aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                        
-                    elif self.spatial_type == "depthanything3":
-                        denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                        feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                        Bs, S, N, C = feats[0][0].shape
-                        spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
-                    else:
-                        raise NotImplementedError
-
-            extra_latents = None
-            if getattr(self, 'image_edit_model', None) is not None:
-                primary_image = [image[0] for image in batch_images]
-                extra_latents = self.forward_pass_image_edit_model(primary_image)
+            )        
 
         # step 3: fuse spatial tokens and qwen tokens
         with torch.autocast("cuda", dtype=torch.float32):       
-            # last_hidden_state: [B, seq_len, H]
-            # last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-            spatial_tokens = None
-            if getattr(self, 'spatial_model', None) is not None:
-                if self.spatial_type == "vggt":
-                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-                else:
-                    raise NotImplementedError
             # qformer
             num_layers = self.config.framework.layer_qformer.num_layers
             qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
@@ -496,17 +469,17 @@ class Qwen_GR00TSpatialForcing(baseframework):
             
             cat_conditions = []
             for layer_index in range(num_layers):
-                if extra_latents is not None:
-                    layer_features = torch.cat(
-                        [qwenvl_hidden_states[layer_index], extra_latents], dim=1
-                    )
-                else:
-                    layer_features = qwenvl_hidden_states[layer_index]
+                # if extra_latents is not None:
+                #     layer_features = torch.cat(
+                #         [qwenvl_hidden_states[layer_index], extra_latents], dim=1
+                #     )
+                # else:
+                layer_features = qwenvl_hidden_states[layer_index]
                 cat_conditions.append(layer_features)
 
-            hidden_state = self.qformer(cat_conditions)
+            last_hidden, hidden_states = self.qformer(cat_conditions)
 
-        return hidden_state, spatial_tokens
+        return last_hidden, hidden_states
             
     def cos_sim(self, x, y):
         x_norm = F.normalize(x, p=2, dim=-1)  # (B, L, D)
@@ -537,7 +510,34 @@ class Qwen_GR00TSpatialForcing(baseframework):
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
-        last_hidden, spatial_tokens = self.forward_pass_VLM(batch_images, instructions)
+        last_hidden, hidden_states = self.forward_pass_VLM(batch_images, instructions)
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            if getattr(self, 'spatial_model', None) is not None:
+                with torch.no_grad():
+                    if self.spatial_type == "vggt":    
+                        spatial_input = preprocess_images(batch_images, last_hidden.device)   
+                        aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                        
+                    elif self.spatial_type == "depthanything3":
+                        denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                        feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                        Bs, S, N, C = feats[0][0].shape
+                        spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+                    else:
+                        raise NotImplementedError
+
+            # extra_latents = None
+            # if getattr(self, 'image_edit_model', None) is not None:
+            #     primary_image = [image[0] for image in batch_images]
+            #     extra_latents = self.forward_pass_image_edit_model(primary_image)
+
+        with torch.autocast("cuda", dtype=torch.float32):       
+            spatial_tokens = None
+            if getattr(self, 'spatial_model', None) is not None:
+                if self.spatial_type == "vggt":
+                    spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+                else:
+                    raise NotImplementedError
 
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
@@ -560,8 +560,10 @@ class Qwen_GR00TSpatialForcing(baseframework):
                 state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
 
             action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
+            
             if spatial_tokens is not None:
-                forcing_loss = self.cos_sim(last_hidden, spatial_tokens)
+                forcing_loss = self.cos_sim(hidden_states[1], spatial_tokens)
+
         return {"action_loss": action_loss, 'forcing_loss': forcing_loss}
 
     @torch.inference_mode()
@@ -590,7 +592,7 @@ class Qwen_GR00TSpatialForcing(baseframework):
         if train_obs_image_size:
             batch_images = resize_images(batch_images, target_size=train_obs_image_size)
     
-        last_hidden, spatial_tokens = self.forward_pass_VLM(batch_images, instructions)
+        last_hidden, hidden_states = self.forward_pass_VLM(batch_images, instructions)
 
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         # import ipdb

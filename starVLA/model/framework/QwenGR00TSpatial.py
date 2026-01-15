@@ -497,8 +497,7 @@ class Qwen_GR00TSpatial(baseframework):
                     # extra_latents = extra_latents.reshape(B, 16, 4, 16, 4, 64)     # (B, H/4, 4, W/4, 4, C)
                     # extra_latents = extra_latents.permute(0, 1, 3, 2, 4, 5)        # (B, H/4, W/4, 4, 4, C)
                     # extra_latents = extra_latents.reshape(B, 256, 4 * 4 * 64)
-                    # import ipdb
-                    # ipdb.set_trace()
+
                     extra_latents = self.image_edit_projector(extra_latents)
                     if spatial_tokens is not None:
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
