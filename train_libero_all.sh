@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0114_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16
+run_id=0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.use_mv_images False \
@@ -22,10 +22,9 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --trainer.is_resume false \
       --framework.fuser.type cross_attention \
-      --framework.spatial_model null
       "
       # --trainer.resume_from_checkpoint null \
-
+# --framework.spatial_model null
 # 打印将要传递的参数，方便调试
 echo "即将传递给训练脚本的参数："
 echo "${args}"
