@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROBOTWIN_PATH=/mnt/data/gaoning/code_repos/RoboTwin
+ROBOTWIN_PATH=/mnt/workspace/junjin/code/RoboTwin
 
 policy_name="model2robotwin_interface"
 task_name=${1}
@@ -12,7 +12,7 @@ gpu_id=${5:-0} # default is 0
 export CUDA_VISIBLE_DEVICES=${gpu_id}
 echo -e "\033[33mgpu id (to use): ${gpu_id}\033[0m"
 
-EVAL_FILES_PATH=$(pwd)
+EVAL_FILES_PATH=/mnt/workspace/junjin/code/starVLA/examples/Robotwin/eval_files
 STARVLA_PATH=$EVAL_FILES_PATH/../../..
 DEPLOY_POLICY_PATH=$EVAL_FILES_PATH/deploy_policy.yml
 

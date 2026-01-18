@@ -22,8 +22,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --trainer.is_resume false \
       --framework.fuser.type cross_attention \
-      --trainer.is_resume true \
-      --trainer.resume_from_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt \
+      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt \
       "
       # --trainer.resume_from_checkpoint null \
 # --framework.spatial_model null
