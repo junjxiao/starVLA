@@ -427,22 +427,41 @@ class Qwen_GR00TSpatial(baseframework):
         return projector
 
     def forward_pass_image_edit_model(self, images, prompt=None):
+        view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
         prompts = ['Rotate the camera view to the left', 'Rotate the camera view to the right']
         with torch.no_grad():
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                inputs = {
-                    "images": images,
-                    "prompts": random.choices(prompts, k=len(images)),
-                    "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 4,
-                    "guidance_scale": 1.0,
-                    "output_type": "latent",
-                    "device": 'cuda',
-                    'height': 256,
-                    'width': 256,
-                }
-                
-                output = self.image_edit_model(**inputs)
+                if view_num == 1:
+                    inputs = {
+                        "images": images,
+                        "prompts": random.choices(prompts, k=len(images)),
+                        "generator": torch.Generator("cuda").manual_seed(43),
+                        "num_inference_steps": 4,
+                        "guidance_scale": 1.0,
+                        "output_type": "latent",
+                        "device": 'cuda',
+                        'height': 256,
+                        'width': 256,
+                    }
+                    output = self.image_edit_model(**inputs)
+                else:
+                    outputs = []
+                    for i in range(view_num):
+                        inputs = {
+                            "images": images,
+                            "prompts": [prompts[i]] * len(images),
+                            "generator": torch.Generator("cuda").manual_seed(43),
+                            "num_inference_steps": 4,
+                            "guidance_scale": 1.0,
+                            "output_type": "latent",
+                            "device": 'cuda',
+                            'height': 256,
+                            'width': 256,
+                        }
+                        output = self.image_edit_model(**inputs)
+                        outputs.append(output)
+                    output = torch.cat(outputs, dim=1)
+
         return output
         
     def forward_pass_VLM(self, batch_images, instructions):
