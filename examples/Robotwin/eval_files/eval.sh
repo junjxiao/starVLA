@@ -1,4 +1,5 @@
 #!/bin/bash
+export CUROBO_TORCH_COMPILE_DISABLE=0
 port=5695
 gpu_id=2
 policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
