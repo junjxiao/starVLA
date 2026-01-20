@@ -28,11 +28,11 @@ num_trials_per_task=1
 # torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
 
 total=$((end_idx - start_idx))
-chunk_size=$((total / 4))
-remainder=$((total % 4))
+chunk_size=$((total / 2))
+remainder=$((total % 2))
 current_start=$start_idx
 
-for i in {0..3}; do
+for i in {0..1}; do
     # 前 'remainder' 份多分配1个元素（用于处理不能整除的情况）
     if [ $i -lt $remainder ]; then
         current_end=$((current_start + chunk_size + 1))
