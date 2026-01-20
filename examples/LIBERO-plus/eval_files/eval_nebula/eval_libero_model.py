@@ -343,11 +343,11 @@ class PolicyModel:
 @draccus.wrap()
 def eval_libero(args: Args) -> None:
     
-    local_rank = int(os.getenv("LOCAL_RANK", "0"))
-    world_size = int(os.getenv("WORLD_SIZE", "1"))
-    rank = int(os.getenv("RANK", "0"))
-    print(f"🌍 Rank {rank}/{world_size} | GPU: {local_rank}")
-    torch.cuda.set_device(local_rank)
+    # local_rank = int(os.getenv("LOCAL_RANK", "0"))
+    # world_size = int(os.getenv("WORLD_SIZE", "1"))
+    # rank = int(os.getenv("RANK", "0"))
+    # print(f"🌍 Rank {rank}/{world_size} | GPU: {local_rank}")
+    # torch.cuda.set_device(local_rank)
     
     
     # Set random seed

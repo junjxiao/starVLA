@@ -46,7 +46,8 @@ for i in {0..3}; do
     fi
 
     echo "Part $((i)): start=$current_start, end=$current_end ([$current_start, $current_end))"
-    torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
+    # torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$((MASTER_ADDR+i)) --master_port=$MASTER_PORT 
+    python ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
