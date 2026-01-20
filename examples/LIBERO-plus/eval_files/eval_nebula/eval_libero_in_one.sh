@@ -52,7 +52,7 @@ for i in {0..3}; do
     --num_trials_per_task $num_trials_per_task \
     --output_dir $output_dir \
     --start_idx $current_start \
-    --end_idx $current_end
+    --end_idx $current_end &
     # 更新下一次的起始位置
     current_start=$current_end
 
