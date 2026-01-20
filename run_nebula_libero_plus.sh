@@ -28,7 +28,6 @@ for i in "${!sizes[@]}"; do
         fi
 
         echo "task=$task, slice=$slice, start_idx=$start_idx, end_idx=$end_idx"
-
         nebulactl run mdl --queue=amap_app_common_h20_na175 \
                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh $task $start_idx $end_idx"\
                   --user_params="" \
@@ -39,7 +38,6 @@ for i in "${!sizes[@]}"; do
                   --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_4_20260106181910
-
         start_idx=$end_idx
     done
 done
