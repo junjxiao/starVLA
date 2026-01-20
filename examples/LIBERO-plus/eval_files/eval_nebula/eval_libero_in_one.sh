@@ -16,8 +16,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 
 
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0114_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/0114_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs16_step20000_test
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0119_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/0119_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16_step20000
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -27,13 +27,41 @@ end_idx=$3
 num_trials_per_task=1
 # torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
 
-torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
+total=$((end_idx - start_idx))
+chunk_size=$((total / 4))
+remainder=$((total % 4))
+current_start=$start_idx
+
+for i in {0..3}; do
+    # 前 'remainder' 份多分配1个元素（用于处理不能整除的情况）
+    if [ $i -lt $remainder ]; then
+        current_end=$((current_start + chunk_size + 1))
+    else
+        current_end=$((current_start + chunk_size))
+    fi
+
+    # 确保最后一份不超过 end_idx（安全边界）
+    if [ $current_end -gt $end_idx ]; then
+        current_end=$end_idx
+    fi
+
+    echo "Part $((i)): start=$current_start, end=$current_end ([$current_start, $current_end))"
+    torchrun --nproc_per_node=$gpu_per_pod --nnodes=$WORLD_SIZE --node_rank=$RANK --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
     --pretrained_path $your_ckpt \
     --task_suite_name $task_suite_name \
     --num_trials_per_task $num_trials_per_task \
     --output_dir $output_dir \
-    --start_idx $start_idx \
-    --end_idx $end_idx
+    --start_idx $current_start \
+    --end_idx $current_end
+    # 更新下一次的起始位置
+    current_start=$current_end
+
+    # 如果已经到达 end_idx，提前退出（防止空区间）
+    if [ $current_start -ge $end_idx ]; then
+        break
+    fi
+done
+
 
 
 # # =============== 聚合结果 ===============
