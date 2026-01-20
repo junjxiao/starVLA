@@ -63,7 +63,7 @@ for i in {0..3}; do
 done
 
 
-
+wait
 # # =============== 聚合结果 ===============
 # echo "All tasks completed. Aggregating results..."
 # export LOG_DIR="${LOG_DIR}"
