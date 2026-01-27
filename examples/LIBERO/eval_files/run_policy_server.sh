@@ -1,12 +1,12 @@
 #!/bin/bash
 
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0119_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0121_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_view2_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
 base_port=9880
 export star_vla_python=/mnt/workspace/junjin/conda/starvla/bin/python
 
 export DEBUG=1
 
-CUDA_VISIBLE_DEVICES=2 python deployment/model_server/server_policy.py \
+CUDA_VISIBLE_DEVICES=0 python deployment/model_server/server_policy.py \
     --ckpt_path ${your_ckpt} \
     --port ${base_port} \
     --use_bf16

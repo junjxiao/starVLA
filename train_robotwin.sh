@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16
+run_id=0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16
 args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -11,7 +11,7 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin.yam
       --datasets.vla_data.per_device_batch_size 16 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
-      --trainer.max_train_steps 20000 \
+      --trainer.max_train_steps 100000 \
       --trainer.save_interval 1000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
@@ -21,7 +21,8 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin.yam
       --wandb_project ${run_id}\
       --trainer.is_resume false \
       --framework.fuser.type cross_attention \
-      --framework.image_edit_model null
+      --framework.image_edit_model null \
+      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
       "
       # --trainer.resume_from_checkpoint null \
 
