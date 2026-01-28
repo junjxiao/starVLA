@@ -41,6 +41,7 @@ from PIL import Image
 def build_argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ckpt_path", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
+    parser.add_argument("--output_dir", type=str)
     parser.add_argument("--use_bf16", action="store_true")
     return parser
 
@@ -51,8 +52,8 @@ class Policy_server:
     """
     def __init__(self, args, server_port=65468, robot_port=65435):
         
-        self.policy = ModelClient(args.ckpt_path)
-        
+        self.policy = ModelClient(args.ckpt_path, args.output_dir)
+
         self.port = server_port
         self.robot_port = robot_port
         self.running = True # 控制服务器运行的标志

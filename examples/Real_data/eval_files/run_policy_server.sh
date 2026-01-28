@@ -1,11 +1,7 @@
 
-your_ckpt=/mnt/workspace/zengshuang.zs/output/libero_all/1227_libero4in1_QwenGR00T_sft/checkpoints/steps_30000_pytorch_model.pt
-base_port=9883
-export star_vla_python=/mnt/workspace/junjin/conda/starVLA/bin/python
-
-export DEBUG=1
-
-CUDA_VISIBLE_DEVICES=3 python deployment/model_server/server_policy.py \
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0128_real_clean_the_table_Qwen3vlGR00T_vggt_cross_bs8/checkpoints/steps_1000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/real/clean_the_table_test
+CUDA_VISIBLE_DEVICES=1 python ./examples/Real_data/eval_files/policy_server.py \
     --ckpt_path ${your_ckpt} \
-    --port ${base_port} \
-    --use_bf16
+    --use_bf16 \
+    --output_dir ${output_dir}

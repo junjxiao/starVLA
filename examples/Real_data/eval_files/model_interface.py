@@ -4,7 +4,7 @@ import os
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-
+import torch
 from examples.SimplerEnv.eval_files.adaptive_ensemble import AdaptiveEnsembler
 from typing import Dict
 import numpy as np
@@ -13,8 +13,78 @@ from PIL import Image
 from starVLA.model.framework.base_framework import baseframework
 from starVLA.model.tools import read_mode_config
 
+def save_numpy_as_mp4(video_array, output_path, fps=25):
+    """
+    将 NumPy 数组保存为 MP4 视频
+    
+    Args:
+        video_array (np.ndarray): 形状为 (T, H, W, 3) 的 uint8 RGB 数组
+        output_path (str): 输出 MP4 文件路径（如 "output.mp4"）
+        fps (int): 帧率，默认 25
+    """
+    video_array = np.array(video_array)
+    if video_array.dtype != np.uint8:
+        # 自动处理 float [0,1] -> uint8 [0,255]
+        if video_array.max() <= 1.0:
+            video_array = (video_array * 255).astype(np.uint8)
+        else:
+            video_array = video_array.astype(np.uint8)
 
-def numpy_to_pil_224(img_array):
+    T, H, W, _ = video_array.shape
+
+    # 创建 VideoWriter
+    fourcc = cv.VideoWriter_fourcc(*'mp4v')  # 使用 mp4v 编码器
+    out = cv.VideoWriter(output_path, fourcc, fps, (W, H))
+
+    if not out.isOpened():
+        print("saving video fail.")
+
+    try:
+        for t in range(T):
+            # RGB -> BGR（OpenCV 使用 BGR）
+            frame_bgr = cv.cvtColor(video_array[t], cv.COLOR_RGB2BGR)
+            out.write(frame_bgr)
+    finally:
+        out.release()
+
+def save_pil_deque_to_mp4(pil_deque, output_path, fps=25):
+    """
+    将 deque 中的 PIL Image 保存为 MP4 视频
+    
+    Args:
+        pil_deque (deque): 每个元素是 PIL Image (RGB)
+        output_path (str): 输出 MP4 文件路径
+        fps (int): 帧率，默认 25
+    """
+    if not pil_deque:
+        raise ValueError("Deque is empty")
+
+    # 获取第一帧尺寸
+    first_img = pil_deque[0]
+    width, height = first_img.size
+
+    # 创建 VideoWriter
+    # 使用 'mp4v' 编码器（H.264 需要安装额外 codec，'mp4v' 更通用）
+    try:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        for pil_img in pil_deque:
+            # 确保图像是 RGB 模式
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            
+            # PIL (RGB) -> OpenCV (BGR)
+            frame = np.array(pil_img)
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            
+            video_writer.write(frame_bgr)
+        video_writer.release()
+    except:
+        print(f"Failed to open video writer for {output_path}")
+
+        
+
+def numpy_to_pil(img_array):
     # 确保数组是 uint8 类型（PIL 要求）
     if img_array.dtype != np.uint8:
         # 如果是 float [0,1]，先转到 [0,255]
@@ -26,19 +96,17 @@ def numpy_to_pil_224(img_array):
     # 转为 PIL Image
     pil_img = Image.fromarray(img_array)
     
-    # Resize 到 224x224
-    pil_img_resized = pil_img.resize((224, 224), Image.BILINEAR)
-    
-    return pil_img_resized
+    return pil_img
 
 
 class ModelClient:
     def __init__(
         self,
         policy_ckpt_path,
+        output_path,
         unnorm_key: Optional[str] = None,
         policy_setup: str = "franka",
-        horizon: int = 0,
+        horizon: int = 1000,
         action_ensemble = True,
         action_ensemble_horizon: Optional[int] = 3, # different cross sim
         image_size: list[int] = [224, 224],
@@ -58,7 +126,8 @@ class ModelClient:
         self.policy = vla
         self.policy_setup = policy_setup
         self.unnorm_key = unnorm_key
-
+        self.output_path = output_path
+        os.makedirs(self.output_path, exist_ok=True)
         print(f"*** policy_setup: {policy_setup}, unnorm_key: {unnorm_key} ***")
         self.use_ddim = use_ddim
         self.num_ddim_steps = num_ddim_steps
@@ -72,7 +141,7 @@ class ModelClient:
         self.sticky_gripper_action = 0.0
         self.previous_gripper_action = None
 
-        self.task_description = None
+        self.task_description = "Pick up the three stuffed animals on the table one by one and place them into the bin." if "clean_the_table" in policy_ckpt_path else "Open the drawer, place the toy inside, and then close the drawer."
         self.image_history = deque(maxlen=self.horizon)
         if self.action_ensemble:
             self.action_ensembler = AdaptiveEnsembler(self.action_ensemble_horizon, self.adaptive_ensemble_alpha)
@@ -82,8 +151,19 @@ class ModelClient:
 
         self.action_norm_stats = self.get_action_stats(self.unnorm_key, policy_ckpt_path=policy_ckpt_path)
         self.action_chunk_size = self.get_action_chunk_size(policy_ckpt_path=policy_ckpt_path)
-        
+
         self.obs_deque = deque([], maxlen=8)
+        self.reset_count = 0
+    
+    def get_latest_obs(self):  
+        return self.obs_deque[-1]
+
+    def process_and_update_obs(self, obs):
+
+        example = self.prepare_observation(obs)
+        self.obs_deque.append(example)
+        self._add_image_to_history(example['image'][0])
+        print('observation updated!')
 
     def prepare_observation(self, obs):
         """Prepare observation for policy input."""
@@ -91,60 +171,22 @@ class ModelClient:
         img = obs['main_camera_rgb']
         wrist_img = obs['wrist_camera_rgb']
 
-        img_resized = numpy_to_pil_224(img)
-        wrist_img_resized = numpy_to_pil_224(wrist_img)
-
-        # Prepare observations dict
-        observation = {
-            "full_image": img_resized,
-            "wrist_image": wrist_img_resized,
-            "state": obs['robot_endpose'],
+        example = {
+            "image": [img, wrist_img],
+            # 'state': obs['robot_endpose'],
+            "lang": self.task_description,
         }
 
-        return observation, img  
+        return example
 
-
-    def process_and_update_obs(self, obs_dict):
-        obs, _ = self.prepare_observation(obs_dict)
-        self.obs_deque.append(obs)
-        print('observation updated!')
-    
-    def get_latest_obs(self):  
-        return self.obs_deque[-1]
-
-    def predict_actions(self, obs):
-        self.process_and_update_obs(obs)
-        observation = self.get_latest_obs()
-        
-        with torch.no_grad():
-            actions = get_action(
-                self.cfg,
-                self.model,
-                observation,
-                'clean the table',
-                processor=self.processor,
-                action_head=self.action_head,
-                scale_head=self.scale_head,
-                proprio_projector=self.proprio_projector,
-                noisy_action_projector=self.noisy_action_projector,
-                use_film=self.cfg.use_film,
-            )
-            for action in actions:
-                action[-1] = 1 - (action[-1]>0.5).astype(np.int8)
-        data_dict = {}
-        data_dict['actions'] = actions
-        return data_dict
-
-
-    def reset(self):
-        self.obs_deque.clear()
-
-    def _add_image_to_history(self, image: np.ndarray) -> None:
+    def _add_image_to_history(self, image) -> None:
         self.image_history.append(image)
         self.num_image_history = min(self.num_image_history + 1, self.horizon)
 
-    def reset(self, task_description: str) -> None:
-        self.task_description = task_description
+    def reset(self) -> None:
+        save_numpy_as_mp4(self.image_history, os.path.join(self.output_path, f"{self.reset_count}.mp4"))
+        self.reset_count += 1
+        self.obs_deque.clear()
         self.image_history.clear()
         if self.action_ensemble:
             self.action_ensembler.reset()
@@ -156,64 +198,42 @@ class ModelClient:
         self.previous_gripper_action = None
 
 
-    def step(
+    def predict_actions(
         self, 
-        example: dict,
-        step: int = 0,
-        **kwargs
-    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+        obs
+    ):
         """
         Perform one step of inference
         :param image: Input image in the format (H, W, 3), type uint8
         :param task_description: Task description text
         :return: (raw action, processed action)
         """
-
-        task_description = example.get("lang", None) 
+       
+        self.process_and_update_obs(obs)
+        example = self.get_latest_obs()
+        
+        task_description = self.task_description
         images = example["image"]  # list of images for history
-
-        if example is not None:
-            if task_description != self.task_description:
-                self.reset(task_description)
                 
         images = [self._resize_image(image) for image in images]
         example["image"] = images
-        vla_input = {
-            "examples": [example],
-            "do_sample": False,
-            "use_ddim": self.use_ddim,
-            "num_ddim_steps": self.num_ddim_steps,
-        }
         
-
         action_chunk_size = self.action_chunk_size
-        if step % action_chunk_size == 0:
-            response = self.client.predict_action(vla_input)
-            try:
-                normalized_actions = response["data"]["normalized_actions"] # B, chunk, D        
-            except KeyError:
-                print(f"Response data: {response}")
-                raise KeyError(f"Key 'normalized_actions' not found in response data: {response['data'].keys()}")
-            
-            normalized_actions = normalized_actions[0]    
-            self.raw_actions = self.unnormalize_actions(normalized_actions=normalized_actions, action_norm_stats=self.action_norm_stats)
+
+        response = self.policy.predict_action([example])
+        normalized_actions = response["normalized_actions"] # B, chunk, D        
         
-        raw_actions = self.raw_actions[step % action_chunk_size][None]    
+        normalized_actions = normalized_actions[0]    
+        actions = self.unnormalize_actions(normalized_actions=normalized_actions, action_norm_stats=self.action_norm_stats)
 
-        raw_action = {
-            "world_vector": np.array(raw_actions[0, :3]),
-            "rotation_delta": np.array(raw_actions[0, 3:6]),
-            "open_gripper": np.array(raw_actions[0, 6:7]),  # range [0, 1]; 1 = open; 0 = close
-        }
-
-        return {"raw_action": raw_action}
+        return {"actions": actions}
 
     @staticmethod
     def unnormalize_actions(normalized_actions: np.ndarray, action_norm_stats: Dict[str, np.ndarray]) -> np.ndarray:
         mask = action_norm_stats.get("mask", np.ones_like(action_norm_stats["min"], dtype=bool))
         action_high, action_low = np.array(action_norm_stats["max"]), np.array(action_norm_stats["min"])
         normalized_actions = np.clip(normalized_actions, -1, 1)
-        normalized_actions[:, 6] = np.where(normalized_actions[:, 6] < 0.5, 0, 1) 
+        normalized_actions[:, 7] = np.where(normalized_actions[:, 7] < 0.5, 0, 1) 
         actions = np.where(
             mask,
             0.5 * (normalized_actions + 1) * (action_high - action_low) + action_low,
