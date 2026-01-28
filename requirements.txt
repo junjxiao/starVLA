@@ -47,3 +47,4 @@ wand==0.6.13
 thop==0.1.1-2209072238
 future==0.18.2 
 draccus==0.8.0
+jsonlines

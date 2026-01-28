@@ -511,6 +511,8 @@ class LeRobotSingleDataset(Dataset):
 
     def _get_position_and_gripper_values(self, data: pd.DataFrame) -> tuple[list, list]:
         """Get position and gripper values based on available columns in the dataset."""
+        # import ipdb
+        # ipdb.set_trace()
         # Get action keys from modality_keys
         action_keys = self.modality_keys.get('action', [])
         

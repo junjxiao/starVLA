@@ -75,6 +75,7 @@ datasets:
     per_device_batch_size: 4
 
   vla_data:
+    num_workers: 4
     dataset_py: lerobot_datasets
     data_root_dir: /mnt/workspace/zengshuang.zs/data/oxe
     data_mix: bridge # bridge_rt_1

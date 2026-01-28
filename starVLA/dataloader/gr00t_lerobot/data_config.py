@@ -904,6 +904,84 @@ class AgilexDataConfig:
 
 ###########################################################################################
 
+###########################################################################################
+class RealDataConfig:
+    video_keys = [
+        "video.primary_image",
+        "video.wrist_image",
+    ]
+    
+    state_keys = [
+        "state.x",
+        "state.y",
+        "state.z",
+        "state.qx",
+        "state.qy",
+        "state.qz",
+        "state.qw",
+        "state.gripper",
+    ]
+    action_keys = [
+        "action.x",
+        "action.y",
+        "action.z",
+        "action.qx",
+        "action.qy",
+        "action.qz",
+        "action.qw",
+        "action.gripper",
+    ]
+    
+    language_keys = ["annotation.human.action.task_description"]
+
+    observation_indices = [0]
+    action_indices = list(range(8))
+
+
+    def modality_config(self):
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+        return modality_configs
+
+    def transform(self):
+        transforms = [
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+            apply_to=self.action_keys,
+            normalization_modes={
+                "action.x": "min_max",
+                "action.y": "min_max",
+                "action.z": "min_max",
+                "action.qx": "min_max",
+                "action.qy": "min_max",
+                "action.qx": "min_max",
+                "action.qw": "min_max",
+            },
+        ),
+        ]
+
+        return ComposedModalityTransform(transforms=transforms)
 
 ROBOT_TYPE_CONFIG_MAP = {
     "libero_franka": Libero4in1DataConfig(),
@@ -915,7 +993,7 @@ ROBOT_TYPE_CONFIG_MAP = {
     "arx_x5": ArxX5DataConfig(),
     "robotwin": AgilexDataConfig(),
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
-    
     "custom_robot_config": SingleFrankaRobotiqDeltaEefDataConfig(),
+    "real": RealDataConfig()
 }
 

@@ -152,4 +152,10 @@ DATASET_NAMED_MIXTURES = {
         ("LEROBOT_LIBERO_DATA/libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
         # ("OXE_LEROBOT_DATASET/bridge_orig_1.0.0_lerobot", 1.0, "oxe_bridge"),
     ],
+    "clean_the_table": [
+        ("clean_the_table", 1.0, "real"),
+    ],
+    "put_toy_in_cabinet": [
+        ("put_toy_in_cabinet", 1.0, "real"),
+    ],
 }
