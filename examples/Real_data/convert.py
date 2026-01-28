@@ -9,14 +9,14 @@ from natsort import natsorted
 import glob
 
 # === 配置 ===
-INPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_datasets/put_toy_in_cabinet")
-OUTPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21/put_toy_in_cabinet")
+INPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_datasets/clean_the_table")
+OUTPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21/clean_the_table")
 
 # === 常量 ===
 DEFAULT_CHUNK_SIZE = 1000
 VIDEO_HEIGHT, VIDEO_WIDTH = 256, 256
 FPS = 20
-TASK_NAME = "Open the drawer, place the toy inside, and then close the drawer."  # Open the drawer, place the toy inside, and then close the drawer.    Pick up the three stuffed animals on the table one by one and place them into the bin.
+TASK_NAME = "Pick up the three stuffed animals on the table one by one and place them into the bin."  # Open the drawer, place the toy inside, and then close the drawer.    Pick up the three stuffed animals on the table one by one and place them into the bin.
 
 
 def compute_video_stats(video_frames: list) -> dict:
@@ -81,7 +81,7 @@ def main():
 
         frames_main = []
         frames_wrist = []
-        actions = []
+        states = []
 
         for npz_file in npz_files:
             data = np.load(npz_file)
@@ -94,16 +94,15 @@ def main():
 
             frames_main.append(main_resized.astype(np.uint8))
             frames_wrist.append(wrist_resized.astype(np.uint8))
-            actions.append(endpose.astype(np.float32))
+            states.append(endpose.astype(np.float32))
 
-        actions = np.array(actions)  # (T, 8)
-        T = len(actions)
+        states = np.array(states)  # (T, 8)
+        T = len(states)
 
         # 构造 state: state[t] = action[t-1], state[0] = action[0]
-        states = np.zeros_like(actions)
-        states[0] = actions[0]
-        if T > 1:
-            states[1:] = actions[:-1]
+        actions = np.zeros_like(states)
+        actions[:-1] = states[1:]
+        actions[-1] = states[-1]
 
         # 保存 parquet
         chunk_id = ep_idx // DEFAULT_CHUNK_SIZE
@@ -123,7 +122,7 @@ def main():
 
         df = pd.DataFrame({
             "observation.state": list(states),          # (T, 8)
-            "action": list(actions),       # (T, 7) — 去掉最后一个 gripper?
+            "action": list(actions),      
             "timestamp": (np.arange(T) / FPS).tolist(), # seconds
             "frame_index": np.arange(T).tolist(),
             "episode_index": [ep_idx] * T,
