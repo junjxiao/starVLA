@@ -17,7 +17,7 @@ freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
 config_yaml=./examples/Real_data/train_files/starvla_cotrain_real.yaml
 libero_data_root=/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21
-data_mix=clean_the_table
+data_mix=put_toy_in_cabinet
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
 run_id=test_real
 # === End of environment variable configuration ===

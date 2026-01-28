@@ -112,9 +112,11 @@ def main():
 
         # 保存视频
         main_video_path = videos_main_dir / f"chunk-{chunk_id:03d}" / "observation.images.image" / f"episode_{ep_idx:06d}.mp4"
+        main_video_path.parent.mkdir(parents=True, exist_ok=True)
         save_video(frames_main, str(main_video_path))
 
         wrist_video_path = videos_wrist_dir/ f"chunk-{chunk_id:03d}" / "observation.images.wrist_image" / f"episode_{ep_idx:06d}.mp4"
+        wrist_video_path.parent.mkdir(parents=True, exist_ok=True)
         save_video(frames_wrist, str(wrist_video_path))
 
         
