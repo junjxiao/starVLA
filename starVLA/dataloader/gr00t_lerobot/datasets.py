@@ -132,6 +132,8 @@ class LeRobotSingleDataset(Dataset):
             transforms (ComposedModalityTransform): The transforms to apply to the dataset.
             embodiment_tag (EmbodimentTag): Overload the embodiment tag for the dataset. e.g. define it as "new_embodiment"
         """
+        # import ipdb
+        # ipdb.set_trace()
         # first check if the path directory exists
         if not Path(dataset_path).exists():
             raise FileNotFoundError(f"Dataset path {dataset_path} does not exist")
@@ -1568,8 +1570,13 @@ class LeRobotMixtureDataset(Dataset):
                 for action_key in dataset.modality_keys["action"]:
                     action.append(data[action_key])
                 action = np.concatenate(action, axis=1).astype(np.float16)
+
+                state = []
+                for state_key in dataset.modality_keys["state"]:
+                    state.append(data[state_key])
+                state = np.concatenate(state, axis=1).astype(np.float16)
                 
-                return dict(action=action, image=images, lang=language)
+                return dict(action=action, image=images, state=state, lang=language)
                 
             except Exception as e:
                 last_exception = e

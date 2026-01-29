@@ -2,8 +2,8 @@
 export CUROBO_TORCH_COMPILE_DISABLE=1
 port=5695
 gpu_id=2
-policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
-ckpt_setting="0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16_step20000"
+policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_10000_pytorch_model.pt
+ckpt_setting="0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16_step10000"
 log_path=/mnt/workspace/junjin/code/starVLA/outputs/robotwin/
 
 seed=0

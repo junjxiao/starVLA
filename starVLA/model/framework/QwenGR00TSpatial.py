@@ -590,7 +590,9 @@ class Qwen_GR00TSpatial(baseframework):
         actions = [example["action"] for example in examples]  # label [B， len, 7]
         
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
-        
+        use_state = getattr(self.config.framework.action_model, 'use_state', False)
+        if not use_state:
+            state = None
         last_hidden = self.forward_pass_VLM(batch_images, instructions)
 
         # Step 4: Action Expert Forward and Loss
@@ -638,7 +640,9 @@ class Qwen_GR00TSpatial(baseframework):
         instructions = [example["lang"] for example in examples]  # [B, str]
     
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
-        
+        use_state = getattr(self.config.framework.action_model, 'use_state', False)
+        if not use_state:
+            state = None
         train_obs_image_size = getattr(self.config.datasets.vla_data, "image_size", None)
         if train_obs_image_size:
             batch_images = resize_images(batch_images, target_size=train_obs_image_size)
