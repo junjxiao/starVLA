@@ -173,7 +173,7 @@ class ModelClient:
 
         example = {
             "image": [img, wrist_img],
-            # 'state': obs['robot_endpose'],
+            'state': [obs['robot_endpose']],
             "lang": self.task_description,
         }
 
