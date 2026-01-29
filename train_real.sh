@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0128_real_clean_the_table_Qwen3vlGR00T_vggt_cross_bs8
+run_id=0129_real_clean_the_table_Qwen3vlGR00T_vggt_use_state_cross_bs8
 args="--config_yaml ./examples/Real_data/train_files/starvla_cotrain_real.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
@@ -11,7 +11,7 @@ args="--config_yaml ./examples/Real_data/train_files/starvla_cotrain_real.yaml \
       --datasets.vla_data.per_device_batch_size 8 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
-      --trainer.max_train_steps 5000 \
+      --trainer.max_train_steps 20000 \
       --trainer.save_interval 1000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000 \
