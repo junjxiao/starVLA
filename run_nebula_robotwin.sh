@@ -78,7 +78,7 @@ for ((i=0; i<total_tasks; i+=group_size)); do
     
     # 调用 eval.sh 并传入当前组的任务作为参数
     nebulactl run mdl --queue=amap_app_common_h20_na175 \
-                  --entry='bash ./examples/Robotwin/eval_files/eval_nebula/eval.sh "${group[@]}"'\
+                  --entry="bash ./examples/Robotwin/eval_files/eval_nebula/eval.sh ${group[*]}"\
                   --user_params="" \
                   --worker_count=1 \
                   --algoame=pytorch260\
