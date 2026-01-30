@@ -10,11 +10,11 @@ port=5695
 gpu_id=0
 policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_10000_pytorch_model.pt
 log_path=/mnt/workspace/junjin/code/starVLA/outputs/robotwin/0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16_step10000
-LOG_DIR="${log_path}/logs"
+
 mkdir -p ${LOG_DIR}
 seed=0
 task_config="demo_clean" # demo_randomized
-
+LOG_DIR="${log_path}/logs/${task_config}"
 ROBOTWIN_PATH=/mnt/workspace/junjin/code/RoboTwin
 policy_name="model2robotwin_interface"
 
@@ -38,7 +38,7 @@ echo "PYTHONPATH: $PYTHONPATH"
 
 # ckpt_setting ${ckpt_setting} \
 for i in "${!task_names[@]}"; do
-    log_file="${LOG_DIR}/${task_config}/${task_names[$i]}.log"
+    log_file="${LOG_DIR}/${task_names[$i]}.log"
     PYTHONWARNINGS=ignore::UserWarning \
     python script/eval_policy.py --config $DEPLOY_POLICY_PATH \
         --overrides \
