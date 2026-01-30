@@ -67,7 +67,7 @@ echo "Found ${#valid_tasks[@]} valid tasks:"
 printf '  - %s\n' "${valid_tasks[@]}"
 
 # 每 4 个任务一组，调用 eval.sh
-group_size=4
+group_size=2
 total_tasks=${#valid_tasks[@]}
 
 for ((i=0; i<total_tasks; i+=group_size)); do
