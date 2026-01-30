@@ -38,7 +38,7 @@ echo "PYTHONPATH: $PYTHONPATH"
 
 # ckpt_setting ${ckpt_setting} \
 for i in "${!task_names[@]}"; do
-    log_file="${LOG_DIR}/${task_names[$i]}.log"
+    log_file="${LOG_DIR}/${task_config}/${task_names[$i]}.log"
     PYTHONWARNINGS=ignore::UserWarning \
     python script/eval_policy.py --config $DEPLOY_POLICY_PATH \
         --overrides \
