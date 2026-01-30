@@ -1,4 +1,8 @@
 #!/bin/bash
+eval "$(conda shell.bash hook)"
+# source activate
+conda activate python3.10
+
 task_names=("$@")
 
 export CUROBO_TORCH_COMPILE_DISABLE=1
