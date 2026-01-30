@@ -1,0 +1,13 @@
+policy_name: starVLA
+task_name: null
+task_config: null
+ckpt_setting: null
+seed: null
+log_path: null
+instruction_type: unseen
+
+# StarVLA Client Parameters
+host: "127.0.0.1"
+port: 5694
+policy_ckpt_path: "/mnt/workspace/junjin/code/starVLA/checkpoints/0115_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_20000_pytorch_model.pt"
+unnorm_key: "robotwin"

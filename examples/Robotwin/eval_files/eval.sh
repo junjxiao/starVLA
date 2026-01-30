@@ -28,7 +28,7 @@ cd $ROBOTWIN_PATH
 
 echo "PYTHONPATH: $PYTHONPATH"
 
-PYTHONWARNINGS=ignore::UserWarning \
+
 task_names=(
     adjust_bottle
     beat_block_hammer
@@ -82,6 +82,7 @@ task_names=(
     turn_switch
 )
 for i in "${!task_names[@]}"; do
+    PYTHONWARNINGS=ignore::UserWarning \
     python script/eval_policy.py --config $DEPLOY_POLICY_PATH \
         --overrides \
         task_name ${task_names[$i]} \
