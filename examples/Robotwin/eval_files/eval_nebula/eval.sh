@@ -4,9 +4,9 @@ eval "$(conda shell.bash hook)"
 conda activate python3.10
 
 task_names=("$@")
-export TORCH_CUDA_ARCH_LIST="9.0"  # 替换为你的架构
-export FORCE_CUDA=1
-export CUROBO_TORCH_COMPILE_DISABLE=1
+# export TORCH_CUDA_ARCH_LIST="9.0"  # 替换为你的架构
+# export FORCE_CUDA=1
+# export CUROBO_TORCH_COMPILE_DISABLE=1
 port=5695
 gpu_id=0
 policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_10000_pytorch_model.pt

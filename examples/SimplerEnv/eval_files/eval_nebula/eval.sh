@@ -3,7 +3,8 @@ eval "$(conda shell.bash hook)"
 # source activate
 conda activate python3.10
 echo `which python`
-
+export SVULKAN2_USE_EGL=1
+export PYOPENGL_PLATFORM="egl"
 export SimplerEnv_PATH=/mnt/workspace/zengshuang.zs/SimplerEnv
 export PYTHONPATH=/opt/conda/envs/python3.10:${PYTHONPATH}
 export PYTHONPATH=$(pwd):${PYTHONPATH}
