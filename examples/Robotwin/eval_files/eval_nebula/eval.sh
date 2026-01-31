@@ -23,8 +23,8 @@ policy_name="model2robotwin_interface"
 export CUDA_VISIBLE_DEVICES=${gpu_id}
 # echo -e "\033[33mgpu id (to use): ${gpu_id}\033[0m"
 
-EVAL_FILES_PATH=/mnt/workspace/junjin/code/starVLA/examples/Robotwin/eval_files/eval_nebula/
-STARVLA_PATH=/mnt/workspace/junjin/code/starVLA
+EVAL_FILES_PATH=./examples/Robotwin/eval_files/eval_nebula/
+STARVLA_PATH=.
 DEPLOY_POLICY_PATH=$EVAL_FILES_PATH/deploy_policy.yml
 
 export PYTHONPATH=$ROBOTWIN_PATH:$PYTHONPATH
