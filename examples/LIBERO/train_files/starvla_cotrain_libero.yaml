@@ -80,6 +80,7 @@ datasets:
     num_workers: 4
     dataset_py: lerobot_datasets
     data_root_dir: /mnt/nas-data-3/yangyandan/libero
+    mv_data_root_dir: null
     data_mix: libero_10
     action_type: delta_qpos
     CoT_prompt: "Your task is {instruction}. To identify the key objects for your task. Locate their bounding boxes in [x1,y1,x2,y2] format."

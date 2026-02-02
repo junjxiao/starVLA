@@ -27,6 +27,13 @@ DATASET_NAMED_MIXTURES = {
         ("libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
                 # ("libero_90_no_noops_lerobot", 1.0, "libero_franka"),
     ],
+     "libero_mv_all": [
+        ("libero_object_no_noops_1.0.0_lerobot", 1.0, "libero_franka_mv"),
+        ("libero_goal_no_noops_1.0.0_lerobot", 1.0, "libero_franka_mv"),
+        ("libero_spatial_no_noops_1.0.0_lerobot", 1.0, "libero_franka_mv"),
+        ("libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka_mv"),
+                # ("libero_90_no_noops_lerobot", 1.0, "libero_franka"),
+    ],
     "bridge": [
         ("bridge_orig_1.0.0_lerobot", 1.0, "oxe_bridge"),
     ],

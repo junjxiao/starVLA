@@ -7,6 +7,8 @@ STARVLA_PATH=/mnt/workspace/junjin/code/starVLA
 policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2/0130_robotwin2_QwenJAT_vggt_sft_64GPUs_chunk30/checkpoints/steps_35000_pytorch_model.pt
 log_path=/mnt/workspace/junjin/code/starVLAPretrain/outputs/robotwin/0130_robotwin2_QwenJAT_vggt_sft_64GPUs_chunk30_step35000
 task_config="demo_clean"
+NUM_GPUS=8
+TASKS_PER_GPU=3
 # === === ===
 
 
@@ -16,8 +18,7 @@ DEPLOY_POLICY_PATH=$EVAL_FILES_PATH/deploy_policy.yml
 seed=0
 policy_name="model2robotwin_interface"
 
-NUM_GPUS=8
-TASKS_PER_GPU=3
+
 MAX_CONCURRENT=$((NUM_GPUS * TASKS_PER_GPU))  # 24
 
 export PYTHONPATH="$ROBOTWIN_PATH:$EVAL_FILES_PATH:$STARVLA_PATH:${PYTHONPATH}"
@@ -84,7 +85,7 @@ if [ $total_tasks -eq 0 ]; then
 fi
 
 echo "✅ Total tasks: $total_tasks"
-echo "✅ Max concurrent: $MAX_CONCURRENT (8 GPUs × 3 tasks/GPU)"
+echo "✅ Max concurrent: $MAX_CONCURRENT ($NUM_GPUS GPUs × $TASKS_PER_GPU tasks/GPU)"
 
 # 创建日志目录
 LOG_DIR="${log_path}/logs/${task_config}"
