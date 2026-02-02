@@ -7,7 +7,7 @@
 from pathlib import Path
 from typing import Sequence
 from omegaconf import OmegaConf
-
+import os
 from starVLA.dataloader.gr00t_lerobot.datasets import LeRobotSingleDataset, LeRobotMixtureDataset
 from starVLA.dataloader.gr00t_lerobot.mixtures import DATASET_NAMED_MIXTURES
 from starVLA.dataloader.gr00t_lerobot.data_config import ROBOT_TYPE_CONFIG_MAP
@@ -18,6 +18,7 @@ def collate_fn(batch):
 
 def make_LeRobotSingleDataset(
     data_root_dir: Path | str,
+    mv_data_root_dir,
     data_name: str,
     robot_type: str,
     delete_pause_frame: bool = False,
@@ -44,9 +45,11 @@ def make_LeRobotSingleDataset(
         embodiment_tag = ROBOT_TYPE_TO_EMBODIMENT_TAG[robot_type]
     
     video_backend = data_cfg.get("video_backend", "decord") if data_cfg else "decord"
-    
+    if mv_data_root_dir is not None:
+        mv_data_root_dir = os.path.join(mv_data_root_dir, data_name)
     return LeRobotSingleDataset(
         dataset_path=dataset_path,
+        mv_dataset_path=mv_data_root_dir,
         modality_configs=modality_config,
         transforms=transforms,
         embodiment_tag=embodiment_tag,
@@ -68,6 +71,7 @@ def get_vla_dataset(
     Get a LeRobotMixtureDataset object.
     """
     data_root_dir = data_cfg.data_root_dir
+    mv_data_root_dir = getattr(data_cfg, 'mv_data_root_dir', None)
     data_mix = data_cfg.data_mix
     mixture_spec = DATASET_NAMED_MIXTURES[data_mix]
     included_datasets, filtered_mixture_spec = set(), []
@@ -82,7 +86,7 @@ def get_vla_dataset(
 
     dataset_mixture = []
     for d_name, d_weight, robot_type in filtered_mixture_spec:
-        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), d_name, robot_type, delete_pause_frame=delete_pause_frame, data_cfg=data_cfg), d_weight))
+        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), mv_data_root_dir, d_name, robot_type, delete_pause_frame=delete_pause_frame, data_cfg=data_cfg), d_weight))
 
     return LeRobotMixtureDataset(
         dataset_mixture,

@@ -29,6 +29,8 @@ from starVLA.model.framework.share_tools import dict_to_namespace
 from starVLA.model.framework.__init__ import build_framework
 # from diffusers import QwenImageEditPlusPipeline
 # from diffusers import LongCatImageEditPipeline
+from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
+from diffusers import QwenImageEditPlusPipeline
 logger = initialize_overwatch(__name__)
 
 
@@ -120,9 +122,14 @@ class baseframework(PreTrainedModel):
 
             raise e
         # if getattr(model_config.framework, 'image_edit_model', None) is not None:
-        #     FrameworkModel.image_edit_model = load_image_edit_model(model_config)
-        #     FrameworkModel.image_edit_model.set_progress_bar_config(disable=True)
-        #     FrameworkModel.image_edit_model.to('cuda')
+        #     if 'Qwen' in model_config.framework.image_edit_model.model_name_or_path:
+        #         image_edit_model = QwenImageEditPlusPipeline.from_pretrained(model_config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+        #     elif 'LongCat' in model_config.framework.image_edit_model.model_name_or_path:
+        #         # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+        #         image_edit_model = LongCatImageEditModel.from_pretrained(model_config.framework.image_edit_model.model_name_or_path, lora_path=config.framework.image_edit_model.lora_path, torch_dtype=torch.bfloat16)
+        #     else:
+        #         raise NotImplementedError
+        #     FrameworkModel.image_edit_model = image_edit_model
         # **ensure model is on GPU**
         FrameworkModel = FrameworkModel
         return FrameworkModel
