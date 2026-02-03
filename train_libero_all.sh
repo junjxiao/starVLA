@@ -19,11 +19,11 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --run_id ${run_id} \
       --wandb_entity junjin \
       --wandb_project ${run_id}\
-      --framework.spatial_model null \
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \ 
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
       "
+      # --framework.spatial_model null \
 # --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/output/pretrain/1223_oxe_pretrain_Qwen3VL4BFast/checkpoints/steps_48000_pytorch_model.pt \
 # --trainer.reload_modules qwen_vl_interface
 # --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt \
