@@ -16,8 +16,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 
 
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0121_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_view2_cross_bs16/checkpoints/steps_20000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/0121_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_view2_cross_bs16_step20000
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/1218_liberoall_Qwen3vlGR00T_vggt_concat/checkpoints/steps_20000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero-plus/1218_liberoall_Qwen3vlGR00T_vggt_concat_step20000
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -28,11 +28,11 @@ num_trials_per_task=1
 # torchrun --nproc_per_node=1 ./examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_model.py \
 
 total=$((end_idx - start_idx))
-chunk_size=$((total / 2))
-remainder=$((total % 2))
+chunk_size=$((total / 4))
+remainder=$((total % 4))
 current_start=$start_idx
 
-for i in {0..1}; do
+for i in {0..3}; do
     # 前 'remainder' 份多分配1个元素（用于处理不能整除的情况）
     if [ $i -lt $remainder ]; then
         current_end=$((current_start + chunk_size + 1))
