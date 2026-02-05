@@ -556,7 +556,7 @@ class Qwen_GR00TSpatial(baseframework):
                         )
                     cat_conditions.append(layer_features)
 
-                last_hidden = self.fuser(cat_conditions)
+                last_hidden = self.fuser(cat_conditions)[0]
             else:
                 raise NotImplementedError
            
