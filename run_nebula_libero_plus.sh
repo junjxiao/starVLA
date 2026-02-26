@@ -54,7 +54,7 @@ done
 
 
 # nebulactl run mdl --queue=amap-poi_ppu810e \
-#                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_goal 1296 1943"\
+#                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_10 1734 1891"\
 #                   --user_params="" \
 #                   --worker_count=1 \
 #                   --algoame=pytorch260\
