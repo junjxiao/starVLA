@@ -10,7 +10,7 @@
 # export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00TSpatialMV #QwenGR00T, QwenGR00TSpatial
+Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
 freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 
@@ -70,7 +70,7 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
   --datasets.vla_data.data_root_dir ${libero_data_root}\
   --datasets.vla_data.data_mix ${data_mix} \
   --datasets.vla_data.per_device_batch_size 1 \
-  --datasets.vla_data.num_workers 0 \
+  --datasets.vla_data.num_workers 4 \
   --trainer.vla_data.video_backend torchvision_av \
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 100000 \
@@ -80,8 +80,9 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
-  --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/output/pretrain/1223_oxe_pretrain_Qwen3VL4BFast/checkpoints/steps_48000_pytorch_model.pt \
-  --trainer.reload_modules qwen_vl_interface \
+  --framework.image_edit_model.view_num 2 \
+  # --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/output/pretrain/1223_oxe_pretrain_Qwen3VL4BFast/checkpoints/steps_48000_pytorch_model.pt \
+  # --trainer.reload_modules qwen_vl_interface \
   # --framework.image_edit_model null
   # --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs4_test2/checkpoints/steps_1000_pytorch_model.pt
     # --framework.spatial_model null \
