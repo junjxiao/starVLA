@@ -42,9 +42,9 @@ echo ""
 # amap-poi_ppu810e
 # amap_app_common_h20_na175
 # amap_app_vtspoi_h20
-nebulactl run mdl --queue=amap-poi_ppu810e \
+nebulactl run mdl --queue=amap_app_vtspoi_h20 \
                   --entry="starVLA/training/train_starvla.py" \
-                  --algo_name=pytorch280 \
+                  --algo_name=pytorch260 \
                   --worker_count=4 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
