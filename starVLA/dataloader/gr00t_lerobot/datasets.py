@@ -112,6 +112,7 @@ class LeRobotSingleDataset(Dataset):
     def __init__(
         self,
         dataset_path: Path | str,
+        mv_dataset_path,
         modality_configs: dict[str, ModalityConfig],
         embodiment_tag: str | EmbodimentTag,
         video_backend: str = "decord",
@@ -139,6 +140,7 @@ class LeRobotSingleDataset(Dataset):
             raise FileNotFoundError(f"Dataset path {dataset_path} does not exist")
 
         self.delete_pause_frame = delete_pause_frame
+        self.mv_dataset_path = mv_dataset_path
 
         self.modality_configs = modality_configs
         self.video_backend = video_backend
@@ -775,6 +777,13 @@ class LeRobotSingleDataset(Dataset):
             # Get the data corresponding to each key in the modality
             for key in self.modality_keys[modality]:
                 data[key] = self.get_data_by_modality(trajectory_id, modality, key, base_index)
+
+        # load left and right images
+        if self.mv_dataset_path is not None:
+            l_image = Image.open(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
+            r_image = Image.open(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
+            data['video.primary_image_l'] = l_image
+            data['video.primary_image_r'] = r_image
         return data
 
     def get_trajectory_data(self, trajectory_id: int) -> pd.DataFrame:
@@ -1564,6 +1573,12 @@ class LeRobotMixtureDataset(Dataset):
                     image = Image.fromarray(image).resize((224, 224)) #TODO check if this is ok
                     images.append(image)
                 
+                if 'video.primary_image_l' in data:
+                    mv_keys = ['video.primary_image_l', 'video.primary_image_r']
+
+                    for k in mv_keys:
+                        images.append(data[k].resize((224, 224)))
+
                 # Get language and action data
                 language = data[dataset.modality_keys["language"][0]][0]
                 action = []

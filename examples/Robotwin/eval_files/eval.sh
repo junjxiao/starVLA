@@ -1,6 +1,9 @@
 #!/bin/bash
 export CUROBO_TORCH_COMPILE_DISABLE=1
-port=5695
+export CUDA_LAUNCH_BLOCKING=1
+export TORCH_CUDA_ARCH_LIST="8.0"  # 替换为你的架构
+export FORCE_CUDA=1
+port=5696
 gpu_id=2
 policy_ckpt_path=/mnt/workspace/junjin/code/starVLA/checkpoints/0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16/checkpoints/steps_10000_pytorch_model.pt
 ckpt_setting="0127_robotwin_Qwen3vlGR00T_vggt_cross_bs16_step10000"
@@ -14,7 +17,7 @@ policy_name="model2robotwin_interface"
 
 
 export CUDA_VISIBLE_DEVICES=${gpu_id}
-echo -e "\033[33mgpu id (to use): ${gpu_id}\033[0m"
+echo -e "gpu id (to use): ${gpu_id}"
 
 EVAL_FILES_PATH=/mnt/workspace/junjin/code/starVLA/examples/Robotwin/eval_files
 STARVLA_PATH=/mnt/workspace/junjin/code/starVLA
@@ -28,7 +31,7 @@ cd $ROBOTWIN_PATH
 
 echo "PYTHONPATH: $PYTHONPATH"
 
-PYTHONWARNINGS=ignore::UserWarning \
+
 task_names=(
     adjust_bottle
     beat_block_hammer
@@ -82,6 +85,7 @@ task_names=(
     turn_switch
 )
 for i in "${!task_names[@]}"; do
+    PYTHONWARNINGS=ignore::UserWarning \
     python script/eval_policy.py --config $DEPLOY_POLICY_PATH \
         --overrides \
         task_name ${task_names[$i]} \
