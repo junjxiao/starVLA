@@ -74,13 +74,13 @@ class Client(InferenceClient):
         self.pred_action_chunk = None
         self.action_norm_stats = self.get_action_stats(self.unnorm_key, policy_ckpt_path=ckpt)
 
-    def get_action_chunk_size(policy_ckpt_path):
+    def get_action_chunk_size(self, policy_ckpt_path):
         model_config, _ = read_mode_config(policy_ckpt_path)  # read config and norm_stats
         # import ipdb; ipdb.set_trace()
         return model_config['framework']['action_model']['future_action_window_size'] + 1
 
 
-    def get_action_stats(unnorm_key: str, policy_ckpt_path) -> dict:
+    def get_action_stats(self, unnorm_key: str, policy_ckpt_path) -> dict:
         """
         Duplicate stats accessor (retained for backward compatibility).
         """
@@ -90,7 +90,7 @@ class Client(InferenceClient):
         unnorm_key = self._check_unnorm_key(norm_stats, unnorm_key)
         return norm_stats[unnorm_key]["action"]
 
-    def _check_unnorm_key(norm_stats, unnorm_key):
+    def _check_unnorm_key(self, norm_stats, unnorm_key):
         """
         Duplicate helper (retained for backward compatibility).
         See primary _check_unnorm_key above.
@@ -109,7 +109,7 @@ class Client(InferenceClient):
         )
         return unnorm_key
 
-    def unnormalize_actions(normalized_actions: np.ndarray, action_norm_stats: Dict[str, np.ndarray]) -> np.ndarray:
+    def unnormalize_actions(self, normalized_actions: np.ndarray, action_norm_stats: Dict[str, np.ndarray]) -> np.ndarray:
         mask = action_norm_stats.get("mask", np.ones_like(action_norm_stats["min"], dtype=bool))
         action_high, action_low = np.array(action_norm_stats["max"]), np.array(action_norm_stats["min"])
         normalized_actions = np.clip(normalized_actions, -1, 1)
@@ -140,14 +140,14 @@ class Client(InferenceClient):
         """
         Infer the next action from the policy in a server-client setup
         """
-        import ipdb
-        ipdb.set_trace()
+        # import ipdb
+        # ipdb.set_trace()
         curr_obs = self._extract_observation(obs)
         if (
             self.actions_from_chunk_completed == 0
             or self.actions_from_chunk_completed >= self.open_loop_horizon
         ):
-            # self.actions_from_chunk_completed = 0
+            self.actions_from_chunk_completed = 0
             # request_data = {
             #     "observation/exterior_image_1_left": resize_with_pad(
             #         curr_obs["right_image"], 224, 224
@@ -162,7 +162,9 @@ class Client(InferenceClient):
             task_description = instruction
             images = [resize_with_pad(curr_obs["right_image"], 224, 224),resize_with_pad(curr_obs["wrist_image"], 224, 224)]                    
             # images = [self._resize_image(image) for image in images]
+            example = {}
             example["image"] = images
+            example["lang"] = task_description
             vla_input = {
                 "examples": [example],
                 "do_sample": False,
@@ -176,7 +178,8 @@ class Client(InferenceClient):
                 print(f"Response data: {response}")
                 raise KeyError(f"Key 'normalized_actions' not found in response data: {response['data'].keys()}")
             
-            normalized_actions = normalized_actions[0]    
+            normalized_actions = normalized_actions[0] 
+            
             self.pred_action_chunk = self.unnormalize_actions(normalized_actions=normalized_actions, action_norm_stats=self.action_norm_stats)
             # self.pred_action_chunk = self.client.infer(request_data)["actions"]
 
@@ -192,7 +195,7 @@ class Client(InferenceClient):
         img1 = resize_with_pad(curr_obs["right_image"], 224, 224)
         img2 = resize_with_pad(curr_obs["wrist_image"], 224, 224)
         both = np.concatenate([img1, img2], axis=1)
-
+        # action = np.concatenate([action[:], np.zeros((1,))])
         return {"action": action, "viz": both}
 
     def _extract_observation(self, obs_dict, *, save_to_disk=False):

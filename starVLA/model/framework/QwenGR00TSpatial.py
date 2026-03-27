@@ -496,22 +496,25 @@ class Qwen_GR00TSpatial(baseframework):
             else:
                 raise NotImplementedError
             self.image_edit_projector = nn.Linear(64, 2560)
+
             if getattr(self.config.framework.image_edit_model, 'fuser_type', None) is not None:    
                 print(self.config.framework.image_edit_model.fuser_type)
-                if  self.config.framework.image_edit_model.fuser_type == 'mmdit':
+                if self.config.framework.image_edit_model.fuser_type == 'mmdit':
                     self.spatial_fuser = MMDITBlock()
+                elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
+                    self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
                 else:
                     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'cross_attention'}
         print(self.config.framework.fuser.type)
         if self.config.framework.fuser.type == 'cross_attention':
-            self.fuser = self.get_cross_attention(config)
+            self.fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
         elif self.config.framework.fuser.type == 'mlayer':
             self.fuser = get_layerwise_qformer(config=self.config)
 
-    def get_cross_attention(self, config):
-        model = CrossAttention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
+    def get_cross_attention(self, d_model, d_hidden, kv_dim):
+        model = CrossAttention(d_model=d_model,d_hidden=d_hidden,kv_dim=kv_dim)
         return model
         
     def get_spatial_model(self, config):
@@ -616,7 +619,29 @@ class Qwen_GR00TSpatial(baseframework):
                     if spatial_tokens is not None:
                         extra_latents = extra_latents.to(spatial_tokens.dtype)
                         if getattr(self, 'spatial_fuser', None) is not None:
-                            spatial_tokens, extra_latents = self.spatial_fuser(spatial_tokens, extra_latents)
+                            if self.config.framework.image_edit_model.fuser_type == 'mmdit':
+                                spatial_tokens, extra_latents = self.spatial_fuser(spatial_tokens, extra_latents)
+                            elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                B, L, D = extra_latents.shape
+
+                                # 确保长度可以被整除
+                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
+
+                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
+                                # 每个 chunk 的形状为 (B, L // view_num, D)
+                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
+
+                                fusion_results = []
+                                for i in range(view_num):
+                                    # 对每一份执行融合操作
+                                    # 注意：如果 spatial_tokens 是共享的，直接传入；如果是多视角的，可能也需要拆分
+                                    ri = self.spatial_fuser(spatial_tokens, latent_chunks[i])
+                                    fusion_results.append(ri)
+
+                                # 将结果拼接回来
+                                extra_latents = torch.cat(fusion_results, dim=1) 
+                                
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
                     else:
                         spatial_tokens = extra_latents

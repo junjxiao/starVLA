@@ -2,11 +2,11 @@ eval "$(conda shell.bash hook)"
 # source activate
 conda activate python3.10
 
-run_id=0313_liberoall_Qwen3vlGR00T_vggt_longcat_view2_mmdit_cross_bs8_8gpus
+run_id=0327_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_cross_bs16_4gpus
 
 # === Please modify the following paths according to your environment ===
 Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
-batch_size=8
+batch_size=16
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
 freeze_module_list="spatial_model,image_edit_model"
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action
@@ -74,7 +74,8 @@ accelerate launch starVLA/training/train_starvla.py \
   --wandb_entity junjin \
   --wandb_project ${run_id}\
   --framework.fuser.type cross_attention \
-  --framework.image_edit_model.view_num 2
+  --framework.image_edit_model.view_num 2 \
+  --framework.image_edit_model.fuser_type cross_attention 
   # --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/output/pretrain/1223_oxe_pretrain_Qwen3VL4BFast/checkpoints/steps_48000_pytorch_model.pt \
   # --trainer.reload_modules qwen_vl_interface \
   # --framework.image_edit_model null
