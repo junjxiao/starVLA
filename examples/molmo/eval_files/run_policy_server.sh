@@ -1,7 +1,7 @@
 #!/bin/bash
 
 your_ckpt=/mnt/workspace/zengshuang.zs/output/roboarena/0315_roboarena_QwenJAT_sft_joint_worker2/checkpoints/steps_100000_pytorch_model.pt
-base_port=8000
+base_port=9980
 export star_vla_python=/mnt/workspace/junjin/conda/starvla/bin/python
 
 # export DEBUG=1

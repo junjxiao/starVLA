@@ -21,7 +21,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \ 
-      --framework.image_edit_model.fuser_type cross_attention \
+      --framework.image_edit_model.fuser_type cross_attention
       "
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
       # --framework.spatial_model null \
@@ -35,27 +35,27 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 # amap-poi_ppu810e
 # amap_app_common_h20_na175
 # amap_app_vtspoi_h20
-# nebulactl run mdl --queue=amap_app_vtspoi_h20 \
-#                   --entry="starVLA/training/train_starvla.py" \
-#                   --algo_name=pytorch260 \
-#                   --worker_count=4 \
-#                   --user_params="$args" \
-#                   --file.cluster_file=./cluster.json \
-#                   --job_name="${run_id}" \
-#                   --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
-#                   --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-#                   --env="${ENVS}"
-
-nebulactl run mdl --queue=amap-poi_ppu810e \
-                  --entry="bash examples/LIBERO/train_files/run_libero_notebook.sh" \
+nebulactl run mdl --queue=amap_app_vtspoi_h20 \
+                  --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
-                  --worker_count=1 \
-                  --user_params="" \
+                  --worker_count=4 \
+                  --user_params="$args" \
                   --file.cluster_file=./cluster.json \
-                  --job_name="starVLA" \
+                  --job_name="${run_id}" \
                   --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
-                  --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_ppu2_20260119180727
+                  --env="${ENVS}"
+
+# nebulactl run mdl --queue=amap-poi_ppu810e \
+#                   --entry="bash examples/LIBERO/train_files/run_libero_notebook.sh" \
+#                   --algo_name=pytorch260 \
+#                   --worker_count=1 \
+#                   --user_params="" \
+#                   --file.cluster_file=./cluster.json \
+#                   --job_name="starVLA" \
+#                   --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
+#                   --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
+#                   --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_ppu2_20260119180727
 
 # train depth head
 # base_vlm='/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct'

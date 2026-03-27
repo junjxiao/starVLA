@@ -8,7 +8,7 @@ output_dir="./outputs/molmospace/0315_roboarena_QwenJAT_sft_joint_worker2_steps_
 
 task_horizon_steps=450
 host="localhost"
-port=8000
+port=9980
 xvfb-run -a python examples/molmo/eval_files/eval.py \
     --args.benchmark-dir ${benchmark_dir} \
     --args.host "$host" \
