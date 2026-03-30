@@ -20,8 +20,8 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_entity junjin \
       --wandb_project ${run_id}\
       --framework.fuser.type cross_attention \
-      --framework.image_edit_model.view_num 2 \ 
-      --framework.image_edit_model.fuser_type cross_attention
+      --framework.image_edit_model.view_num 2 \
+      --framework.image_edit_model.fuser_type cross_attention \
       "
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
       # --framework.spatial_model null \
