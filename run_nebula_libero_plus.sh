@@ -3,7 +3,7 @@
 # 定义数组
 sizes=(2519 2591 2518 2402)
 tasks=("libero_10" "libero_goal" "libero_object" "libero_spatial")
-total_slices=(16 8 8 8)
+total_slices=(8 4 4 4)
 
 for i in "${!sizes[@]}"; do
     size=${sizes[$i]}
