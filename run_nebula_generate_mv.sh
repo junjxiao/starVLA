@@ -2,7 +2,7 @@
 
 # 定义数组
 sizes=(379 428 454 432)
-tasks=("libero_10_no_noops" "libero_goal_no_noops" "libero_object_no_noops" "libero_spatial_no_noops")
+tasks=("libero_10_no_noops_1.0.0_lerobot" "libero_goal_no_noops_1.0.0_lerobot" "libero_object_no_noops_1.0.0_lerobot" "libero_spatial_no_noops_1.0.0_lerobot")
 total_slices=(4 4 4 4)
 
 for i in "${!sizes[@]}"; do

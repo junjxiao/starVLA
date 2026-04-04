@@ -98,6 +98,7 @@ class baseframework(PreTrainedModel):
         config = dict_to_namespace(model_config)
         model_config = config
         model_config.trainer.pretrained_checkpoint = None
+        model_config.framework.image_edit_model.read_from_local = False
         # FrameworkModel = cls(config=model_config, **kwargs) # TODO find cls by config
         FrameworkModel = build_framework(cfg=model_config)
         

@@ -63,6 +63,7 @@ framework:
     lora_path: /mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000
     view_num: 1
     fuser_type: mmdit
+    read_from_local: true
 datasets:
   vlm_data:
     dataset_py: vlm_datasets

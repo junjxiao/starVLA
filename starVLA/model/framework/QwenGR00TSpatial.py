@@ -488,13 +488,15 @@ class Qwen_GR00TSpatial(baseframework):
             self.spatial_projector = self.get_spatial_projector(config)
 
         if getattr(self.config.framework, 'image_edit_model', None) is not None:
-            if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
-                self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-            elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
-                # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
-                self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, lora_path=config.framework.image_edit_model.lora_path, torch_dtype=torch.bfloat16)
-            else:
-                raise NotImplementedError
+            if not self.config.framework.image_edit_model.read_from_local:
+                if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
+                    self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
+                    # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                    self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, lora_path=config.framework.image_edit_model.lora_path, torch_dtype=torch.bfloat16)
+                else:
+                    raise NotImplementedError
+
             self.image_edit_projector = nn.Linear(64, 2560)
 
             if getattr(self.config.framework.image_edit_model, 'fuser_type', None) is not None:    

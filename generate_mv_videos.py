@@ -15,8 +15,8 @@ import imageio.v3 as iio
 from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
 
 # 提示词
-LPROMPT = "Rotate the camera 10 degrees to the left."
-RPROMPT = "Rotate the camera 10 degrees to the right."
+LPROMPT = "Rotate the camera view to the left."
+RPROMPT = "Rotate the camera view to the right."
 
 def extract_frames_and_metadata(video_path):
     """
@@ -86,8 +86,8 @@ def main():
     print(f"🌍 Rank {rank}/{world_size} | GPU: {local_rank}")
 
     # 路径
-    BASE_DIR = f"/mnt/xlab-nas-1/junjin/dataset/libero_mv_images/{args.dataset_name}"
-    ORIG_DIR = os.path.join('/mnt/nas-data-3/yangyandan/libero', f'{args.dataset_name}_1.0.0_lerobot', 'videos/chunk-000/observation.images.image')
+    BASE_DIR = f"/mnt/xlab-nas-1/junjin/dataset/libero_mv_feats/{args.dataset_name}"
+    ORIG_DIR = os.path.join('/mnt/nas-data-3/yangyandan/libero', f'{args.dataset_name}', 'videos/chunk-000/observation.images.image')
     L_DIR = os.path.join(BASE_DIR, "limages")
     R_DIR = os.path.join(BASE_DIR, "rimages")
     os.makedirs(L_DIR, exist_ok=True)
@@ -163,15 +163,19 @@ def main():
                     "images": [img],
                     "prompts": [prompt],
                     "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 20,
+                    "num_inference_steps": 8,
                     "guidance_scale": 1.0,
-                    "output_type": "pil", #latent
+                    "output_type": "latent", #latent
                     "device": 'cuda',
                     'width': 256,
                     'height': 256
                 }
                 output = pipeline(**inputs)
-                output[0].save(os.path.join(l_path, f"{i}.jpg"))
+                # output[0].save(os.path.join(l_path, f"{i}.jpg"))
+                # import ipdb
+                # ipdb.set_trace()
+                np.save(os.path.join(l_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
+
 
 
             # Right view
@@ -181,15 +185,16 @@ def main():
                     "images": [img],
                     "prompts": [prompt],
                     "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 20,
+                    "num_inference_steps": 8,
                     "guidance_scale": 1.0,
-                    "output_type": "pil", #latent
+                    "output_type": "latent", #latent
                     "device": 'cuda',
                     'width': 256,
                     'height': 256
                 }
                 output = pipeline(**inputs)
-                output[0].save(os.path.join(r_path, f"{i}.jpg"))
+                np.save(os.path.join(r_path, f"{i}.npy"), output[0].detach().cpu().to(torch.float32).numpy())
+                # output[0].save(os.path.join(r_path, f"{i}.jpg"))
 
             # 每 20 帧清理缓存防止 OOM
             # if (i + 1) % 20 == 0:
