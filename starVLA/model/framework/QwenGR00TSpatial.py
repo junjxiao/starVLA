@@ -571,7 +571,7 @@ class Qwen_GR00TSpatial(baseframework):
 
         return output
         
-    def forward_pass_VLM(self, batch_images, instructions):
+    def forward_pass_VLM(self, batch_images, instructions, mv_feat=None):
 
         # Step 1: QWenVL input format
         qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
@@ -598,9 +598,13 @@ class Qwen_GR00TSpatial(baseframework):
                         raise NotImplementedError
 
             extra_latents = None
-            if getattr(self, 'image_edit_model', None) is not None:
-                primary_image = [image[0] for image in batch_images]
-                extra_latents = self.forward_pass_image_edit_model(primary_image)
+            if getattr(self.config.framework, 'image_edit_model', None) is not None:
+                if mv_feat is not None:
+                    extra_latents = torch.tensor(np.array(mv_feat), device=qwenvl_outputs[-1].device, dtype=qwenvl_outputs[-1].dtype)
+                else:
+                    primary_image = [image[0] for image in batch_images]
+                    extra_latents = self.forward_pass_image_edit_model(primary_image)
+            
 
         # step 3: fuse spatial tokens and qwen tokens
         with torch.autocast("cuda", dtype=torch.float32):
@@ -716,7 +720,10 @@ class Qwen_GR00TSpatial(baseframework):
         use_state = getattr(self.config.framework.action_model, 'use_state', False)
         if not use_state:
             state = None
-        last_hidden = self.forward_pass_VLM(batch_images, instructions)
+
+        mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
+
+        last_hidden = self.forward_pass_VLM(batch_images, instructions, mv_feat)
 
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):

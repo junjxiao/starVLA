@@ -780,10 +780,14 @@ class LeRobotSingleDataset(Dataset):
 
         # load left and right images
         if self.mv_dataset_path is not None:
-            l_image = Image.open(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
-            r_image = Image.open(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
-            data['video.primary_image_l'] = l_image
-            data['video.primary_image_r'] = r_image
+            # l_image = Image.open(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
+            # r_image = Image.open(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
+            # data['video.primary_image_l'] = l_image
+            # data['video.primary_image_r'] = r_image
+            l_image = np.load(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npg'))
+            r_image = np.load(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npg'))
+            data['mv_feat.l'] = l_image
+            data['mv_feat.r'] = r_image
         return data
 
     def get_trajectory_data(self, trajectory_id: int) -> pd.DataFrame:
@@ -1590,8 +1594,18 @@ class LeRobotMixtureDataset(Dataset):
                 for state_key in dataset.modality_keys["state"]:
                     state.append(data[state_key])
                 state = np.concatenate(state, axis=1).astype(np.float16)
+
+                mv_feat = None
+                if 'mv_feat.l' in data:
+                    mv_feat = []
+                    mv_keys = ['mv_feat.l', 'mv_feat.r']
+
+                    for k in mv_keys:
+                        mv_feat.append(data[k])
                 
-                return dict(action=action, image=images, state=state, lang=language)
+                    mv_feat = np.concatenate(mv_feat, axis=1).astype(np.float32)
+                
+                return dict(action=action, image=images, state=state, lang=language, mv_feat=mv_feat)
                 
             except Exception as e:
                 last_exception = e
