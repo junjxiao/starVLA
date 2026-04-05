@@ -2,19 +2,19 @@
 
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0331_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_cross_bs8_4gpus
+run_id=0405_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_cross_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/nas-data-3/yangyandan/libero \
       --datasets.vla_data.data_mix libero_all \
-      --datasets.vla_data.per_device_batch_size 8 \
+      --datasets.vla_data.per_device_batch_size 16 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
       --trainer.max_train_steps 30000 \
       --trainer.save_interval 5000 \
       --trainer.logging_frequency 100 \
-      --trainer.eval_interval 1000 \
+      --trainer.eval_interval 1000000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
       --run_id ${run_id} \
       --wandb_entity junjin \
@@ -22,6 +22,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
       --framework.image_edit_model.fuser_type cross_attention \
+      --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
       "
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
       # --framework.spatial_model null \
@@ -35,7 +36,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 # amap-poi_ppu810e
 # amap_app_common_h20_na175
 # amap_app_vtspoi_h20
-nebulactl run mdl --queue=amap_app_vtspoi_h20 \
+nebulactl run mdl --queue=amap-poi_ppu810e \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
                   --worker_count=4 \

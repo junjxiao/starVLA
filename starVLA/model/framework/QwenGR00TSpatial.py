@@ -42,8 +42,7 @@ from starVLA.training.trainer_utils.trainer_tools import resize_images
 from starVLA.model.tools import FRAMEWORK_REGISTRY
 
 from vggt.models.vggt import VGGT
-from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
-from diffusers import QwenImageEditPlusPipeline
+
 # from diffusers import LongCatImageEditPipeline
 from starVLA.model.modules.projector.QFormer import get_layerwise_qformer
 import random
@@ -489,6 +488,8 @@ class Qwen_GR00TSpatial(baseframework):
 
         if getattr(self.config.framework, 'image_edit_model', None) is not None:
             if not self.config.framework.image_edit_model.read_from_local:
+                from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
+                from diffusers import QwenImageEditPlusPipeline
                 if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
                     self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
                 elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
@@ -596,11 +597,12 @@ class Qwen_GR00TSpatial(baseframework):
                         spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
                     else:
                         raise NotImplementedError
-
+            # import ipdb
+            # ipdb.set_trace()
             extra_latents = None
             if getattr(self.config.framework, 'image_edit_model', None) is not None:
                 if mv_feat is not None:
-                    extra_latents = torch.tensor(np.array(mv_feat), device=qwenvl_outputs[-1].device, dtype=qwenvl_outputs[-1].dtype)
+                    extra_latents = torch.tensor(np.array(mv_feat), device=qwenvl_outputs.hidden_states[-1].device, dtype=qwenvl_outputs.hidden_states[-1].dtype)
                 else:
                     primary_image = [image[0] for image in batch_images]
                     extra_latents = self.forward_pass_image_edit_model(primary_image)
@@ -647,7 +649,7 @@ class Qwen_GR00TSpatial(baseframework):
 
                                 # 将结果拼接回来
                                 extra_latents = torch.cat(fusion_results, dim=1) 
-                                
+  
                         spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
                     else:
                         spatial_tokens = extra_latents

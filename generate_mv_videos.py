@@ -193,7 +193,7 @@ def main():
                     'height': 256
                 }
                 output = pipeline(**inputs)
-                np.save(os.path.join(r_path, f"{i}.npy"), output[0].detach().cpu().to(torch.float32).numpy())
+                np.save(os.path.join(r_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
                 # output[0].save(os.path.join(r_path, f"{i}.jpg"))
 
             # 每 20 帧清理缓存防止 OOM

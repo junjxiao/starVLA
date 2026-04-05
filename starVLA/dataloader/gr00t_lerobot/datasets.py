@@ -784,10 +784,10 @@ class LeRobotSingleDataset(Dataset):
             # r_image = Image.open(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
             # data['video.primary_image_l'] = l_image
             # data['video.primary_image_r'] = r_image
-            l_image = np.load(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npg'))
-            r_image = np.load(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npg'))
-            data['mv_feat.l'] = l_image
-            data['mv_feat.r'] = r_image
+            l_image = np.load(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
+            r_image = np.load(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
+            data['mv_feat.l'] = l_image[0]
+            data['mv_feat.r'] = r_image[0]
         return data
 
     def get_trajectory_data(self, trajectory_id: int) -> pd.DataFrame:
@@ -1602,10 +1602,12 @@ class LeRobotMixtureDataset(Dataset):
 
                     for k in mv_keys:
                         mv_feat.append(data[k])
-                
+                    # import ipdb
+                    # ipdb.set_trace()
                     mv_feat = np.concatenate(mv_feat, axis=1).astype(np.float32)
-                
-                return dict(action=action, image=images, state=state, lang=language, mv_feat=mv_feat)
+                    return dict(action=action, image=images, state=state, lang=language, mv_feat=mv_feat)
+                else:
+                    return dict(action=action, image=images, state=state, lang=language)
                 
             except Exception as e:
                 last_exception = e
