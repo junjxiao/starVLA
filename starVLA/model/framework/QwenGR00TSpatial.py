@@ -506,8 +506,8 @@ class Qwen_GR00TSpatial(baseframework):
                     self.spatial_fuser = MMDITBlock()
                 elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
                     self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
-                else:
-                    raise NotImplementedError
+                # else:
+                #     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
             self.config.framework.fuser = {'type':'cross_attention'}
         print(self.config.framework.fuser.type)
