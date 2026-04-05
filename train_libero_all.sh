@@ -21,7 +21,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
-      --framework.image_edit_model.fuser_type mmdit \
+      --framework.image_edit_model.fuser_type cross_attention \
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
       "
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
@@ -38,7 +38,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 # amap_app_vtspoi_h20
 nebulactl run mdl --queue=amap-poi_ppu810e \
                   --entry="starVLA/training/train_starvla.py" \
-                  --algo_name=pytorch260 \
+                  --algo_name=pytorch280 \
                   --worker_count=4 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
