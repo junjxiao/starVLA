@@ -1604,7 +1604,7 @@ class LeRobotMixtureDataset(Dataset):
                         mv_feat.append(data[k])
                     # import ipdb
                     # ipdb.set_trace()
-                    mv_feat = np.concatenate(mv_feat, axis=1).astype(np.float32)
+                    mv_feat = np.concatenate(mv_feat, axis=0).astype(np.float32)
                     return dict(action=action, image=images, state=state, lang=language, mv_feat=mv_feat)
                 else:
                     return dict(action=action, image=images, state=state, lang=language)
