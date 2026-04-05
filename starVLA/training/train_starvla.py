@@ -50,7 +50,8 @@ accelerator.print(accelerator.state)
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torchvision.io")
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 from accelerate.logging import get_logger
