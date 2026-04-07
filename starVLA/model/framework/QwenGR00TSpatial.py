@@ -559,7 +559,7 @@ class Qwen_GR00TSpatial(baseframework):
                             "images": images,
                             "prompts": [prompts[i]] * len(images),
                             "generator": torch.Generator("cuda").manual_seed(43),
-                            "num_inference_steps": 2,
+                            "num_inference_steps": 8,
                             "guidance_scale": 1.0,
                             "output_type": "latent",
                             "device": 'cuda',
