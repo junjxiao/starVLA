@@ -504,7 +504,7 @@ class Qwen_GR00TSpatial(baseframework):
                 print(self.config.framework.image_edit_model.fuser_type)
                 if self.config.framework.image_edit_model.fuser_type == 'mmdit':
                     self.spatial_fuser = MMDITBlock()
-                elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
+                elif self.config.framework.image_edit_model.fuser_type == 'cross_attention' or self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
                     self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
                 # else:
                 #     raise NotImplementedError
@@ -645,6 +645,25 @@ class Qwen_GR00TSpatial(baseframework):
                                     # 对每一份执行融合操作
                                     # 注意：如果 spatial_tokens 是共享的，直接传入；如果是多视角的，可能也需要拆分
                                     ri = self.spatial_fuser(spatial_tokens, latent_chunks[i])
+                                    fusion_results.append(ri)
+
+                                # 将结果拼接回来
+                                extra_latents = torch.cat(fusion_results, dim=1) 
+                            elif self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                B, L, D = extra_latents.shape
+
+                                # 确保长度可以被整除
+                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
+
+                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
+                                # 每个 chunk 的形状为 (B, L // view_num, D)
+                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
+
+                                fusion_results = []
+                                for i in range(view_num):
+                                    # 对每一份执行融合操作
+                                    ri = self.spatial_fuser(latent_chunks[i], spatial_tokens)
                                     fusion_results.append(ri)
 
                                 # 将结果拼接回来
