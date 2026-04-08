@@ -2,7 +2,7 @@
 
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0408_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_invconcat_bs16_4gpus
+run_id=0408_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_self_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -21,7 +21,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
-      --framework.image_edit_model.fuser_type inv_cross_attention \
+      --framework.image_edit_model.fuser_type self_attention \
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
       "
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \

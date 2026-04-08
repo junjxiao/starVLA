@@ -9,7 +9,7 @@ Flow-matching header is copyright from GR00T N1.5,
 """
 import sys
 from pathlib import Path
-
+import math
 # Add workspace root to Python path if not already there
 _workspace_root = Path(__file__).parent.parent.parent.parent
 if str(_workspace_root) not in sys.path:
@@ -138,6 +138,105 @@ class Attention(nn.Module):
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         return x
+
+class SelfAttention(nn.Module):
+    def __init__(self, embed_dim=2560, num_heads=16, dropout=0.1, bias=True):
+        """
+        Self-Attention Module
+        
+        Args:
+            embed_dim (int): 输入 token 的维度，默认为 2560
+            num_heads (int): 注意力头的数量。注意：embed_dim 必须能被 num_heads 整除。
+                             2560 / 16 = 160 (每个头的维度)
+            dropout (float): Dropout 概率
+            bias (bool): 线性层是否使用 bias
+        """
+        super(SelfAttention, self).__init__()
+        
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+        
+        # 确保维度可以整除
+        assert self.head_dim * num_heads == self.embed_dim, \
+            f"embed_dim ({embed_dim}) must be divisible by num_heads ({num_heads})"
+
+        # 定义 Q, K, V 的线性投影层
+        # 输入: (bs, l, 2560) -> 输出: (bs, l, 2560)
+        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        # 输出投影层
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        self.dropout = nn.Dropout(dropout)
+        
+        # 缩放因子
+        self.scale = math.sqrt(self.head_dim)
+
+    def forward(self, x, mask=None):
+        """
+        Args:
+            x: Input tensor of shape (bs, l, embed_dim), e.g., (bs, l, 2560)
+            mask: Optional attention mask of shape (bs, 1, 1, l) or (bs, l, l)
+                  True/1 indicates positions to attend to, False/0 indicates masked positions.
+        
+        Returns:
+            Output tensor of shape (bs, l, embed_dim)
+        """
+        bs, l, _ = x.shape
+
+        # 1. 线性投影得到 Q, K, V
+        # Shape: (bs, l, embed_dim)
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
+
+        # 2. 多头 reshape 和 transpose
+        # 从 (bs, l, embed_dim) -> (bs, l, num_heads, head_dim) -> (bs, num_heads, l, head_dim)
+        q = q.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 3. 计算 Attention Scores
+        # 使用 PyTorch 2.0+ 优化的 scaled_dot_product_attention (支持 Flash Attention)
+        # 如果 PyTorch 版本 < 2.0，请查看下方的 fallback 实现
+        if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
+            # mask 需要是 boolean 类型或者 float (-inf) 类型
+            # 这里假设 mask 是 boolean: True for keep, False for mask out
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, 
+                attn_mask=mask, 
+                dropout_p=self.dropout.p if self.training else 0.0,
+                is_causal=False # 如果是 Decoder 自回归任务设为 True，否则 False
+            )
+        else:
+            # Fallback for older PyTorch versions
+            # Q @ K^T
+            # (bs, num_heads, l, head_dim) @ (bs, num_heads, head_dim, l) -> (bs, num_heads, l, l)
+            scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
+            
+            if mask is not None:
+                # 假设 mask 为 0 的地方需要屏蔽，将其设为 -inf
+                # 注意：根据 mask 的具体格式可能需要调整 broadcast 逻辑
+                scores = scores.masked_fill(mask == 0, -1e9)
+            
+            attn_weights = torch.softmax(scores, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+            
+            # Attn @ V
+            # (bs, num_heads, l, l) @ (bs, num_heads, l, head_dim) -> (bs, num_heads, l, head_dim)
+            attn_output = torch.matmul(attn_weights, v)
+
+        # 4. 合并多头
+        # (bs, num_heads, l, head_dim) -> (bs, l, num_heads, head_dim) -> (bs, l, embed_dim)
+        attn_output = attn_output.transpose(1, 2).contiguous().view(bs, l, self.embed_dim)
+
+        # 5. 最终线性投影
+        output = self.out_proj(attn_output)
+        
+        return output
 
 class MMDITBlock(nn.Module):
     def __init__(self, dim=2560, num_heads=40, mlp_ratio=4.0):
@@ -506,6 +605,8 @@ class Qwen_GR00TSpatial(baseframework):
                     self.spatial_fuser = MMDITBlock()
                 elif self.config.framework.image_edit_model.fuser_type == 'cross_attention' or self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
                     self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
+                elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
                 # else:
                 #     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
@@ -629,6 +730,7 @@ class Qwen_GR00TSpatial(baseframework):
                         if getattr(self, 'spatial_fuser', None) is not None:
                             if self.config.framework.image_edit_model.fuser_type == 'mmdit':
                                 spatial_tokens, extra_latents = self.spatial_fuser(spatial_tokens, extra_latents)
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
                             elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
                                 view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
                                 B, L, D = extra_latents.shape
@@ -649,6 +751,7 @@ class Qwen_GR00TSpatial(baseframework):
 
                                 # 将结果拼接回来
                                 extra_latents = torch.cat(fusion_results, dim=1) 
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
                             elif self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
                                 view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
                                 B, L, D = extra_latents.shape
@@ -668,8 +771,13 @@ class Qwen_GR00TSpatial(baseframework):
 
                                 # 将结果拼接回来
                                 extra_latents = torch.cat(fusion_results, dim=1) 
-  
-                        spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'concat':
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
+                                extra_latents = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                spatial_tokens = self.spatial_fuser(extra_latents)
+                        
                     else:
                         spatial_tokens = extra_latents
                 last_hidden = self.fuser(last_hidden, spatial_tokens)
