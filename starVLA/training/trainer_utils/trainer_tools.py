@@ -458,6 +458,42 @@ class TrainerUtils:
         else:
             print("No valid JSON part found")
             return None
+    
+    def _get_latest_checkpoint(self, checkpoint_dir):
+        """Find the latest checkpoint in the directory based on step number."""
+        if not os.path.exists(checkpoint_dir):
+            self.accelerator.print(f"No checkpoint directory found at {checkpoint_dir}")
+            return None, 0
+
+        # 获取所有符合命名规则，支持 .pt 和 .safetensors
+        checkpoints = [
+            f for f in os.listdir(checkpoint_dir) 
+            if re.match(r"steps_(\d+)_(?:pytorch_model\.pt|model\.safetensors)$", f)
+            and os.path.isfile(os.path.join(checkpoint_dir, f))  # 确保是文件
+        ]
+
+        if not checkpoints:
+            self.accelerator.print(f"No checkpoints found in {checkpoint_dir}")
+            return None, 0
+
+        # 提取步数并排序
+        try:
+            checkpoints_with_steps = [
+                (ckpt, int(re.search(r"steps_(\d+)_(?:pytorch_model\.pt|model\.safetensors)$", ckpt).group(1)))
+                for ckpt in checkpoints
+            ]
+        except AttributeError as e:
+            self.accelerator.print(f"Error parsing checkpoint filenames: {e}")
+            return None, 0
+
+        # 按步数排序，获取最新的 checkpoint
+        checkpoints_with_steps.sort(key=lambda x: x[1])
+        latest_checkpoint, completed_steps = checkpoints_with_steps[-1]
+
+        latest_checkpoint_path = os.path.join(checkpoint_dir, latest_checkpoint)
+        self.accelerator.print(f"Latest checkpoint found: {latest_checkpoint_path}")
+        return latest_checkpoint_path, completed_steps
+
 
 
 import os

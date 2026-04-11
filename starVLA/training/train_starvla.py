@@ -160,14 +160,15 @@ class VLATrainer(TrainerUtils):
         seed = self.config.seed + rank if hasattr(self.config, "seed") else rank + 3047
         set_seed(seed)
 
-        # load pretrained weights
-        if hasattr(self.config.trainer, "pretrained_checkpoint") and self.config.trainer.pretrained_checkpoint:
-            pretrained_checkpoint = self.config.trainer.pretrained_checkpoint
-            reload_modules = (
-                self.config.trainer.reload_modules if hasattr(self.config.trainer, "reload_modules") else None
-            )
+        self._init_checkpointing()
+        # # load pretrained weights
+        # if hasattr(self.config.trainer, "pretrained_checkpoint") and self.config.trainer.pretrained_checkpoint:
+        #     pretrained_checkpoint = self.config.trainer.pretrained_checkpoint
+        #     reload_modules = (
+        #         self.config.trainer.reload_modules if hasattr(self.config.trainer, "reload_modules") else None
+        #     )
 
-            self.model = self.load_pretrained_backbones(self.model, pretrained_checkpoint, reload_modules=reload_modules)
+        #     self.model = self.load_pretrained_backbones(self.model, pretrained_checkpoint, reload_modules=reload_modules)
 
         # freeze parameters
         freeze_modules = (
@@ -191,7 +192,7 @@ class VLATrainer(TrainerUtils):
         )
 
         self._init_wandb()
-        self._init_checkpointing()
+        # self._init_checkpointing()
 
     def _calculate_total_batch_size(self):
         """calculate global batch size"""
@@ -218,12 +219,46 @@ class VLATrainer(TrainerUtils):
         self.checkpoint_dir = os.path.join(self.config.output_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        resume_from_checkpoint = getattr(self.config.trainer, "resume_from_checkpoint", None)
+        # 获取预训练检查点和是否恢复训练的标志
+        pretrained_checkpoint = getattr(self.config.trainer, "pretrained_checkpoint", None)
         is_resume = getattr(self.config.trainer, "is_resume", False)
+        self.resume_from_checkpoint = pretrained_checkpoint
 
-        # resume training state
-        if resume_from_checkpoint and is_resume:
-            self._load_checkpoint(self.config.trainer.resume_from_checkpoint)
+        # 加载预训练权重
+        if pretrained_checkpoint:
+            reload_modules = getattr(self.config.trainer, "reload_modules", None)
+            self.model = self.load_pretrained_backbones(self.model, pretrained_checkpoint, reload_modules=reload_modules)
+            self.completed_steps = 0
+            self.resume_from_checkpoint = pretrained_checkpoint
+            logger.info(f"Loaded pretrained checkpoint: {pretrained_checkpoint}, steps: {self.completed_steps}")
+        else:
+            logger.info("No pretrained checkpoint provided. Starting training from scratch.")
+            self.completed_steps = 0
+
+        # TODO retinking resume and load from pretrained_checkpoint
+        if is_resume:
+            # 恢复训练状态
+            resume_from_checkpoint, self.completed_steps = self._get_latest_checkpoint(self.checkpoint_dir)
+            
+            if resume_from_checkpoint:
+                self.resume_from_checkpoint = resume_from_checkpoint
+                self.model = self.load_pretrained_backbones(self.model, self.resume_from_checkpoint, reload_modules=None)
+                logger.info(f"Resuming training from checkpoint: {self.resume_from_checkpoint}, steps: {self.completed_steps}")
+                return None
+            else:
+                logger.warning(f"No valid checkpoint found in {self.checkpoint_dir}. Starting training from scratch.")
+                self.completed_steps = 0
+
+        
+        # self.checkpoint_dir = os.path.join(self.config.output_dir, "checkpoints")
+        # os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        # resume_from_checkpoint = getattr(self.config.trainer, "resume_from_checkpoint", None)
+        # is_resume = getattr(self.config.trainer, "is_resume", False)
+
+        # # resume training state
+        # if resume_from_checkpoint and is_resume:
+        #     self._load_checkpoint(self.config.trainer.resume_from_checkpoint)
 
     def _load_checkpoint(self, checkpoint_path):
         """load checkpoint"""
@@ -263,6 +298,18 @@ class VLATrainer(TrainerUtils):
             with open(os.path.join(self.config.output_dir, "summary.jsonl"), "a") as f:
                 f.write(json.dumps(summary_data) + "\n")
             self.accelerator.print(f"✅ Checkpoint saved at {checkpoint_path}")
+            if isinstance(self.config, AccessTrackedConfig):
+                logger.info("📊 Saving accessed configuration...")
+                output_dir = Path(self.config.output_dir)
+                # self.config.save_accessed_config(
+                #     output_dir / "config.json", 
+                #     use_original_values=False
+                # )
+                self.config.save_accessed_config(
+                    output_dir / "config.yaml", 
+                    use_original_values=False 
+                )
+                logger.info("✅ Configuration files saved")
         self.accelerator.wait_for_everyone()
 
 

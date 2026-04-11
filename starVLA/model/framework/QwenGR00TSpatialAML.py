@@ -1,0 +1,995 @@
+# Copyright 2025 starVLA community. All rights reserved.
+# Licensed under the MIT License, Version 1.0 (the "License");
+# Implemented by [Junqiu YU / Fudan University] in [2025]. 
+# Design and Merged by [Jinhui YE / HKUST University] in [2025].
+"""
+Qwen-GR00T Framework
+A lightweight implementation that Qwen-VL + Flow-matching head to directly predict continuous actions
+Flow-matching header is copyright from GR00T N1.5,
+"""
+import sys
+from pathlib import Path
+import math
+# Add workspace root to Python path if not already there
+_workspace_root = Path(__file__).parent.parent.parent.parent
+if str(_workspace_root) not in sys.path:
+    sys.path.insert(0, str(_workspace_root))
+import os
+CHECKPOINT_BASEDIR = os.getenv('CHECKPOINT_BASEDIR', None)
+from typing import List
+from tqdm import tqdm
+from typing import List, Optional, Tuple
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from PIL import Image
+from torchvision import transforms as TF
+import cv2
+
+from starVLA.training.trainer_utils import initialize_overwatch
+from deployment.model_server.tools.image_tools import to_pil_preserve
+
+logger = initialize_overwatch(__name__)
+
+# HuggingFace Default / LLaMa-2 IGNORE_INDEX (for labels)
+IGNORE_INDEX = -100
+
+from starVLA.model.framework.base_framework import baseframework
+from starVLA.model.modules.vlm import get_vlm_model
+from starVLA.model.modules.action_model.GR00T_ActionHeader import get_action_model, FlowmatchingActionHead
+from starVLA.model.modules.action_model.JAT_ActionHeader import get_action_model, FlowmatchingActionHead
+from starVLA.training.trainer_utils.trainer_tools import resize_images
+from starVLA.model.tools import FRAMEWORK_REGISTRY
+
+from vggt.models.vggt import VGGT
+
+# from diffusers import LongCatImageEditPipeline
+from starVLA.model.modules.projector.QFormer import get_layerwise_qformer
+import random
+
+class CrossAttention(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        d_hidden: int,
+        nhead: int = 8,
+        dropout: float = 0.0,
+        kv_dim: int = 2048
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.d_hidden = d_hidden if d_hidden is not None else d_model
+        self.nhead = nhead
+        self.head_dim = self.d_hidden // nhead
+        assert self.d_hidden % nhead == 0, "d_hidden must be divisible by nhead"
+
+        # Projections
+        self.q_proj = nn.Linear(d_model, self.d_hidden)
+        self.k_proj = nn.Linear(kv_dim, self.d_hidden)
+        self.v_proj = nn.Linear(kv_dim, self.d_hidden)
+        self.out_proj = nn.Linear(self.d_hidden, d_model)
+
+        self.dropout_attn = nn.Dropout(dropout)
+        self.dropout_out = nn.Dropout(dropout)
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, image_feature: torch.Tensor, spatial_feature: torch.Tensor):
+        """
+        Args:
+            image_feature: (B, N_img, d_model) — Query
+            vggt_feature:   (B, N_vggt, kv_dim) — Key and Value
+
+        Returns:
+            fused_image_feature: (B, N_img, d_model)
+        """
+        B, N_img, _ = image_feature.shape
+        _, N_spatial, _ = spatial_feature.shape
+
+        # Project to d_hidden
+        q = self.q_proj(image_feature)   # (B, N_img, d_hidden)
+        k = self.k_proj(spatial_feature)     # (B, N_vggt, d_hidden)
+        v = self.v_proj(spatial_feature)     # (B, N_vggt, d_hidden)
+
+        # Reshape for multi-head: (B, N, d_hidden) -> (B, N, nhead, head_dim) -> (B, nhead, N, head_dim)
+        q = q.view(B, N_img, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_img, head_dim)
+        k = k.view(B, N_spatial, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_vggt, head_dim)
+        v = v.view(B, N_spatial, self.nhead, self.head_dim).transpose(1, 2)  # (B, nhead, N_vggt, head_dim)
+
+        # Scaled Dot-Product Attention
+        scale = self.head_dim ** -0.5
+        attn_weights = torch.matmul(q, k.transpose(-2, -1)) * scale  # (B, nhead, N_img, N_vggt)
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = self.dropout_attn(attn_weights)
+
+        # Weighted sum over values
+        attn_output = torch.matmul(attn_weights, v)  # (B, nhead, N_img, head_dim)
+
+        # Concatenate heads and project back
+        attn_output = attn_output.transpose(1, 2).contiguous()  # (B, N_img, nhead, head_dim)
+        attn_output = attn_output.view(B, N_img, self.d_hidden)  # (B, N_img, d_hidden)
+
+        # Final projection to d_model
+        output = self.out_proj(attn_output)  # (B, N_img, d_model)
+        output = self.dropout_out(output)
+
+        # Residual connection + LayerNorm
+        output = self.norm(image_feature + output)
+
+        return output
+
+class Attention(nn.Module):
+    def __init__(self, dim, num_heads=40, qkv_bias=True):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.proj = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        B, N, C = x.shape
+        # qkv shape: [3, B, num_heads, N, head_dim]
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+
+        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = self.proj(x)
+        return x
+
+class SelfAttention(nn.Module):
+    def __init__(self, embed_dim=2560, num_heads=16, dropout=0.1, bias=True):
+        """
+        Self-Attention Module
+        
+        Args:
+            embed_dim (int): 输入 token 的维度，默认为 2560
+            num_heads (int): 注意力头的数量。注意：embed_dim 必须能被 num_heads 整除。
+                             2560 / 16 = 160 (每个头的维度)
+            dropout (float): Dropout 概率
+            bias (bool): 线性层是否使用 bias
+        """
+        super(SelfAttention, self).__init__()
+        
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+        
+        # 确保维度可以整除
+        assert self.head_dim * num_heads == self.embed_dim, \
+            f"embed_dim ({embed_dim}) must be divisible by num_heads ({num_heads})"
+
+        # 定义 Q, K, V 的线性投影层
+        # 输入: (bs, l, 2560) -> 输出: (bs, l, 2560)
+        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        # 输出投影层
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        self.dropout = nn.Dropout(dropout)
+        
+        # 缩放因子
+        self.scale = math.sqrt(self.head_dim)
+
+    def forward(self, x, mask=None):
+        """
+        Args:
+            x: Input tensor of shape (bs, l, embed_dim), e.g., (bs, l, 2560)
+            mask: Optional attention mask of shape (bs, 1, 1, l) or (bs, l, l)
+                  True/1 indicates positions to attend to, False/0 indicates masked positions.
+        
+        Returns:
+            Output tensor of shape (bs, l, embed_dim)
+        """
+        bs, l, _ = x.shape
+
+        # 1. 线性投影得到 Q, K, V
+        # Shape: (bs, l, embed_dim)
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
+
+        # 2. 多头 reshape 和 transpose
+        # 从 (bs, l, embed_dim) -> (bs, l, num_heads, head_dim) -> (bs, num_heads, l, head_dim)
+        q = q.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 3. 计算 Attention Scores
+        # 使用 PyTorch 2.0+ 优化的 scaled_dot_product_attention (支持 Flash Attention)
+        # 如果 PyTorch 版本 < 2.0，请查看下方的 fallback 实现
+        if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
+            # mask 需要是 boolean 类型或者 float (-inf) 类型
+            # 这里假设 mask 是 boolean: True for keep, False for mask out
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, 
+                attn_mask=mask, 
+                dropout_p=self.dropout.p if self.training else 0.0,
+                is_causal=False # 如果是 Decoder 自回归任务设为 True，否则 False
+            )
+        else:
+            # Fallback for older PyTorch versions
+            # Q @ K^T
+            # (bs, num_heads, l, head_dim) @ (bs, num_heads, head_dim, l) -> (bs, num_heads, l, l)
+            scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
+            
+            if mask is not None:
+                # 假设 mask 为 0 的地方需要屏蔽，将其设为 -inf
+                # 注意：根据 mask 的具体格式可能需要调整 broadcast 逻辑
+                scores = scores.masked_fill(mask == 0, -1e9)
+            
+            attn_weights = torch.softmax(scores, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+            
+            # Attn @ V
+            # (bs, num_heads, l, l) @ (bs, num_heads, l, head_dim) -> (bs, num_heads, l, head_dim)
+            attn_output = torch.matmul(attn_weights, v)
+
+        # 4. 合并多头
+        # (bs, num_heads, l, head_dim) -> (bs, l, num_heads, head_dim) -> (bs, l, embed_dim)
+        attn_output = attn_output.transpose(1, 2).contiguous().view(bs, l, self.embed_dim)
+
+        # 5. 最终线性投影
+        output = self.out_proj(attn_output)
+        
+        return output
+
+class MMDITBlock(nn.Module):
+    def __init__(self, dim=2560, num_heads=40, mlp_ratio=4.0):
+        super().__init__()
+        self.dim = dim
+        
+        # --- 模态 A 的组件 ---
+        self.norm1_a = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
+        self.norm2_a = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
+        self.mlp_a = nn.Sequential(
+            nn.Linear(dim, int(dim * mlp_ratio)),
+            nn.GELU(approximate="tanh"),
+            nn.Linear(int(dim * mlp_ratio), dim)
+        )
+        # 固定 temb 后，调制参数变为可学习的固定向量 (Scale/Shift/Gate)
+        self.mod_a = nn.Parameter(torch.zeros(6, dim)) 
+
+        # --- 模态 B 的组件 ---
+        self.norm1_b = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
+        self.norm2_b = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
+        self.mlp_b = nn.Sequential(
+            nn.Linear(dim, int(dim * mlp_ratio)),
+            nn.GELU(approximate="tanh"),
+            nn.Linear(int(dim * mlp_ratio), dim)
+        )
+        self.mod_b = nn.Parameter(torch.zeros(6, dim))
+
+        # --- 共享的注意力机制 ---
+        self.attn = Attention(dim, num_heads=num_heads)
+        
+        self.init_weights()
+
+    def init_weights(self):
+        # 按照 DiT 的惯例，初始化 gate 为 0，使初始状态接近恒等映射
+        nn.init.constant_(self.mod_a, 0)
+        nn.init.constant_(self.mod_b, 0)
+
+    def apply_modulate(self, x, norm_layer, shift, scale):
+        # 对应：norm(x) * (1 + scale) + shift
+        return norm_layer(x) * (1 + scale.unsqueeze(0)) + shift.unsqueeze(0)
+
+    def forward(self, x_a, x_b):
+        """
+        x_a: 特征 A, 形状 [B, N_a, 2560]
+        x_b: 特征 B, 形状 [B, N_b, 2560]
+        """
+        # 1. 拆分调制参数 (每个模态 6 个)
+        # mod_a shape: [6, 2560]
+        shft_msa_a, scl_msa_a, gate_msa_a, shft_mlp_a, scl_mlp_a, gate_mlp_a = self.mod_a.chunk(6, dim=0)
+        shft_msa_b, scl_msa_b, gate_msa_b, shft_mlp_b, scl_mlp_b, gate_mlp_b = self.mod_b.chunk(6, dim=0)
+
+        # 2. Attention 前的预归一化与调制
+        norm_x_a = self.apply_modulate(x_a, self.norm1_a, shft_msa_a, scl_msa_a)
+        norm_x_b = self.apply_modulate(x_b, self.norm1_b, shft_msa_b, scl_msa_b)
+
+        # 3. 联合注意力处理 (Joint Attention)
+        # 拼接两个序列
+        combined = torch.cat([norm_x_a, norm_x_b], dim=1)
+        attn_out = self.attn(combined)
+        
+        # 拆分回原序列
+        attn_a = attn_out[:, :x_a.shape[1], :]
+        attn_b = attn_out[:, x_a.shape[1]:, :]
+
+        # 4. 残差连接与门控 (Gate)
+        x_a = x_a + gate_msa_a.unsqueeze(0) * attn_a
+        x_b = x_b + gate_msa_b.unsqueeze(0) * attn_b
+
+        # 5. MLP 部分
+        # 模态 A
+        norm_mlp_a = self.apply_modulate(x_a, self.norm2_a, shft_mlp_a, scl_mlp_a)
+        x_a = x_a + gate_mlp_a.unsqueeze(0) * self.mlp_a(norm_mlp_a)
+        
+        # 模态 B
+        norm_mlp_b = self.apply_modulate(x_b, self.norm2_b, shft_mlp_b, scl_mlp_b)
+        x_b = x_b + gate_mlp_b.unsqueeze(0) * self.mlp_b(norm_mlp_b)
+
+        return x_a, x_b
+
+def preprocess_images(image_list, target_size, mode='crop'): #  [B，[PLT]]
+    batch_images = []
+    shapes = set()
+    to_tensor = TF.ToTensor()
+    # target_size = 518
+
+    # First process all images and collect their shapes
+    for imgs in image_list:
+        epi_images = []
+        for img in imgs:
+            width, height = img.size
+
+            if mode == "pad":
+                # Make the largest dimension 518px while maintaining aspect ratio
+                if width >= height:
+                    new_width = target_size
+                    new_height = round(height * (new_width / width) / 14) * 14  # Make divisible by 14
+                else:
+                    new_height = target_size
+                    new_width = round(width * (new_height / height) / 14) * 14  # Make divisible by 14
+            else:  # mode == "crop"
+                # Original behavior: set width to 518px
+                new_width = target_size
+                # Calculate height maintaining aspect ratio, divisible by 14
+                new_height = round(height * (new_width / width) / 14) * 14
+
+            # Resize with new dimensions (width, height)
+            # img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            img = to_tensor(img)  # Convert to tensor (0, 1)
+
+            # Center crop height if it's larger than 518 (only in crop mode)
+            if mode == "crop" and new_height > target_size:
+                start_y = (new_height - target_size) // 2
+                img = img[:, start_y : start_y + target_size, :]
+
+            # For pad mode, pad to make a square of target_size x target_size
+            if mode == "pad":
+                h_padding = target_size - img.shape[1]
+                w_padding = target_size - img.shape[2]
+
+                if h_padding > 0 or w_padding > 0:
+                    pad_top = h_padding // 2
+                    pad_bottom = h_padding - pad_top
+                    pad_left = w_padding // 2
+                    pad_right = w_padding - pad_left
+
+                    # Pad with white (value=1.0)
+                    img = torch.nn.functional.pad(
+                        img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+                    )
+
+            shapes.add((img.shape[1], img.shape[2]))
+            epi_images.append(img)
+        batch_images.append(torch.stack(epi_images))
+
+    # Check if we have different shapes
+    # In theory our model can also work well with different shapes
+    if len(shapes) > 1:
+        print(f"Warning: Found images with different shapes: {shapes}")
+        # Find maximum dimensions
+        max_height = max(shape[0] for shape in shapes)
+        max_width = max(shape[1] for shape in shapes)
+
+        # Pad images if necessary
+        padded_images = []
+        for img in batch_images:
+            h_padding = max_height - img.shape[1]
+            w_padding = max_width - img.shape[2]
+
+            if h_padding > 0 or w_padding > 0:
+                pad_top = h_padding // 2
+                pad_bottom = h_padding - pad_top
+                pad_left = w_padding // 2
+                pad_right = w_padding - pad_left
+
+                img = torch.nn.functional.pad(
+                    img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+                )
+            padded_images.append(img)
+        batch_images = padded_images
+
+    batch_images = torch.stack(batch_images)  # concatenate images
+
+    # Ensure correct shape when single image
+    if len(image_list) == 1:
+        # Verify shape is (1, C, H, W)
+        if batch_images.dim() == 3:
+            batch_images = batch_images.unsqueeze(0)
+    return batch_images
+
+class TokenDownsampler(nn.Module):
+    def __init__(
+        self, 
+        input_tokens: int = 4096,
+        input_dim: int = 64,
+        target_tokens: int = 256,      # 你可以设为 1024, 256, 64 等
+        output_dim: int = 2560,
+        use_residual: bool = True
+    ):
+        super().__init__()
+        
+        # 验证输入
+        # assert input_tokens == 4096, "Input tokens must be 4096"
+        # assert input_dim == 16, "Input dimension must be 16"
+        
+        # 计算空间尺寸
+        input_h = input_w = int(input_tokens ** 0.5)  # 64
+        target_h = target_w = int(target_tokens ** 0.5)
+        
+        assert input_h * input_w == input_tokens, "Input tokens must be a perfect square"
+        assert target_h * target_w == target_tokens, "Target tokens must be a perfect square"
+        assert input_h % target_h == 0, "Input size must be divisible by target size"
+        
+        self.input_h = input_h
+        self.input_w = input_w
+        self.target_h = target_h
+        self.target_w = target_w
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.use_residual = use_residual
+        
+        # 计算下采样倍数
+        downsample_factor = input_h // target_h  # e.g., 64//8 = 8
+        
+        # 构建下采样网络
+        layers = []
+        current_dim = input_dim
+        
+        if downsample_factor >= 8:
+            # 64 -> 32 -> 16 -> 8 (3 steps for 8x downsample)
+            layers.extend([
+                nn.Conv2d(current_dim, 64, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(8, 64),
+                nn.ReLU(inplace=True),
+            ])
+            current_dim = 64
+            
+            layers.extend([
+                nn.Conv2d(current_dim, 256, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(16, 256),
+                nn.ReLU(inplace=True),
+            ])
+            current_dim = 256
+            
+            layers.extend([
+                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(min(32, output_dim // 8), output_dim),
+                nn.ReLU(inplace=True),
+            ])
+            
+        elif downsample_factor >= 4:
+            # 64 -> 32 -> 16 (2 steps for 4x downsample)
+            layers.extend([
+                nn.Conv2d(current_dim, 128, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(8, 128),
+                nn.ReLU(inplace=True),
+            ])
+            current_dim = 128
+            
+            layers.extend([
+                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(min(32, output_dim // 8), output_dim),
+                nn.ReLU(inplace=True),
+            ])
+            
+        elif downsample_factor >= 2:
+            # 64 -> 32 (1 step for 2x downsample)
+            layers.extend([
+                nn.Conv2d(current_dim, output_dim, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(min(32, output_dim // 8), output_dim),
+                nn.ReLU(inplace=True),
+            ])
+        else:
+            # No downsampling, just projection
+            layers.extend([
+                nn.Conv2d(current_dim, output_dim, kernel_size=1),
+                nn.GroupNorm(min(32, output_dim // 8), output_dim),
+                nn.ReLU(inplace=True),
+            ])
+        
+        self.downsample_proj = nn.Sequential(*layers)
+        
+        # 可选：残差连接（如果输入和输出空间尺寸相同且维度匹配）
+        if use_residual and downsample_factor == 1 and input_dim == output_dim:
+            self.residual_proj = nn.Identity()
+        elif use_residual and downsample_factor == 1:
+            self.residual_proj = nn.Conv2d(input_dim, output_dim, kernel_size=1)
+        else:
+            self.residual_proj = None
+            
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            tokens: (B, 4096, 16) - input tokens
+            
+        Returns:
+            output_tokens: (B, target_tokens, 2560) - downsampled and expanded tokens
+        """
+        B = tokens.shape[0]
+        
+        # Reshape to spatial format: (B, 16, 64, 64)
+        x = tokens.transpose(1, 2).reshape(B, self.input_dim, self.input_h, self.input_w)
+        
+        # Save for residual if needed
+        if self.residual_proj is not None:
+            x_res = self.residual_proj(x)
+        else:
+            x_res = None
+        
+        # Apply downsampling and expansion
+        x = self.downsample_proj(x)  # (B, 2560, target_h, target_w)
+        
+        # Add residual connection if available
+        if x_res is not None:
+            # Ensure spatial dimensions match
+            if x_res.shape[2:] != x.shape[2:]:
+                x_res = torch.nn.functional.interpolate(
+                    x_res, size=x.shape[2:], mode='nearest'
+                )
+            x = x + x_res
+        
+        # Reshape back to tokens: (B, 2560, target_tokens) -> (B, target_tokens, 2560)
+        output_tokens = x.reshape(B, self.output_dim, -1).transpose(1, 2)
+        
+        return output_tokens
+
+@FRAMEWORK_REGISTRY.register("QwenGR00TSpatialAML")
+class Qwen_GR00TSpatialAML(baseframework):
+    """
+    Multimodal vision-language-action model.
+
+    Components:
+      - Qwen2.5 VL interface for fused language/vision token embeddings
+      - Layer-wise QFormer for multi-layer feature aggregation
+      - DINO encoder for dense multi-view spatial tokens
+      - DiT diffusion head for future action sequence modeling
+
+    Focus: Predict future continuous actions conditioned on images + instruction.
+    """
+
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Construct all submodules and cache key configuration values.
+
+        Args:
+            config: Hierarchical configuration (OmegaConf/dict) containing framework + trainer sections.
+            **kwargs: Reserved for future overrides (unused).
+        """
+        super().__init__()
+        self.config = config
+        self.qwen_vl_interface = get_vlm_model(config=self.config)
+        # align dims --> we should put them to config or no?
+        self.config.framework.action_model.diffusion_model_cfg.cross_attention_dim = self.qwen_vl_interface.model.config.hidden_size
+
+        self.action_model: FlowmatchingActionHead = get_action_model(config=self.config)  # 修复后续引用
+
+        self.future_action_window_size = config.framework.action_model.future_action_window_size
+        self.past_action_window_size = config.framework.action_model.past_action_window_size
+        self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
+        
+        if getattr(self.config.framework, 'spatial_model', None) is not None:
+            self.spatial_model = self.get_spatial_model(config)
+            self.spatial_projector = self.get_spatial_projector(config)
+
+        if getattr(self.config.framework, 'image_edit_model', None) is not None:
+            if not self.config.framework.image_edit_model.read_from_local:
+                from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
+                from diffusers import QwenImageEditPlusPipeline
+                if 'Qwen' in config.framework.image_edit_model.model_name_or_path:
+                    self.image_edit_model = QwenImageEditPlusPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                elif 'LongCat' in config.framework.image_edit_model.model_name_or_path:
+                    # self.image_edit_model = LongCatImageEditPipeline.from_pretrained(config.framework.image_edit_model.model_name_or_path, torch_dtype=torch.bfloat16)
+                    self.image_edit_model = LongCatImageEditModel.from_pretrained(config.framework.image_edit_model.model_name_or_path, lora_path=config.framework.image_edit_model.lora_path, torch_dtype=torch.bfloat16)
+                else:
+                    raise NotImplementedError
+
+            self.image_edit_projector = nn.Linear(64, 2560)
+
+            if getattr(self.config.framework.image_edit_model, 'fuser_type', None) is not None:    
+                print(self.config.framework.image_edit_model.fuser_type)
+                if self.config.framework.image_edit_model.fuser_type == 'mmdit':
+                    self.spatial_fuser = MMDITBlock()
+                elif self.config.framework.image_edit_model.fuser_type == 'cross_attention' or self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
+                    self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
+                elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                # else:
+                #     raise NotImplementedError
+        if getattr(self.config.framework, 'fuser', None) is None:
+            self.config.framework.fuser = {'type':'cross_attention'}
+        print(self.config.framework.fuser.type)
+        if self.config.framework.fuser.type == 'cross_attention':
+            self.fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
+        elif self.config.framework.fuser.type == 'mlayer':
+            self.fuser = get_layerwise_qformer(config=self.config)
+
+    def get_cross_attention(self, d_model, d_hidden, kv_dim):
+        model = CrossAttention(d_model=d_model,d_hidden=d_hidden,kv_dim=kv_dim)
+        return model
+        
+    def get_spatial_model(self, config):
+        spatial_model_cfg = config.framework.spatial_model
+        if "vggt" in spatial_model_cfg.model_name_or_path:
+            self.spatial_type = "vggt"
+            spatial_model = VGGT.from_pretrained(spatial_model_cfg.model_name_or_path)
+        else:
+            raise NotImplementedError
+        return spatial_model
+
+    def get_spatial_projector(self, config):
+        spatial_projector_cfg = config.framework.spatial_projector
+        projector = nn.Linear(config.framework.spatial_model.output_dim, spatial_projector_cfg.output_dim)
+        return projector
+
+    def forward_pass_image_edit_model(self, images, prompt=None):
+        view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+        prompts = ['Rotate the camera view to the left', 'Rotate the camera view to the right']
+        with torch.no_grad():
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                if view_num == 1:
+                    inputs = {
+                        "images": images,
+                        "prompts": random.choices(prompts, k=len(images)),
+                        "generator": torch.Generator("cuda").manual_seed(43),
+                        "num_inference_steps": 4,
+                        "guidance_scale": 1.0,
+                        "output_type": "latent",
+                        "device": 'cuda',
+                        'height': 256,
+                        'width': 256,
+                    }
+                    output = self.image_edit_model(**inputs)
+                else:
+                    outputs = []
+                    for i in range(view_num):
+                        inputs = {
+                            "images": images,
+                            "prompts": [prompts[i]] * len(images),
+                            "generator": torch.Generator("cuda").manual_seed(43),
+                            "num_inference_steps": 8,
+                            "guidance_scale": 1.0,
+                            "output_type": "latent",
+                            "device": 'cuda',
+                            'height': 256,
+                            'width': 256,
+                        }
+                        output = self.image_edit_model(**inputs)
+                        outputs.append(output)
+                    output = torch.cat(outputs, dim=1)
+
+        return output
+        
+    def forward_pass_VLM(self, batch_images, instructions, mv_feat=None):
+
+        # Step 1: QWenVL input format
+        qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            qwenvl_outputs = self.qwen_vl_interface(
+                **qwen_inputs,
+                output_attentions=False,
+                output_hidden_states=True,
+                return_dict=True,
+            )    
+            if getattr(self, 'spatial_model', None) is not None:
+                # step 2: encode spatial feature
+                with torch.no_grad():
+                    if self.spatial_type == "vggt":    
+                        spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                        aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
+                        
+                    elif self.spatial_type == "depthanything3":
+                        denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
+                        feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
+                        Bs, S, N, C = feats[0][0].shape
+                        spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
+                    else:
+                        raise NotImplementedError
+            # import ipdb
+            # ipdb.set_trace()
+            extra_latents = None
+            if getattr(self.config.framework, 'image_edit_model', None) is not None:
+                if mv_feat is not None:
+                    extra_latents = torch.tensor(np.array(mv_feat), device=qwenvl_outputs.hidden_states[-1].device, dtype=qwenvl_outputs.hidden_states[-1].dtype)
+                else:
+                    primary_image = [image[0] for image in batch_images]
+                    extra_latents = self.forward_pass_image_edit_model(primary_image)
+            
+
+        # step 3: fuse spatial tokens and qwen tokens
+        with torch.autocast("cuda", dtype=torch.float32):
+            if self.config.framework.fuser.type == 'cross_attention':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                spatial_tokens = None
+                if getattr(self, 'spatial_model', None) is not None:
+                    if self.spatial_type == "vggt":
+                        spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+                    else:
+                        raise NotImplementedError
+
+                    spatial_tokens = self.spatial_projector(spatial_tokens)
+
+                if extra_latents is not None:
+                    extra_latents = self.image_edit_projector(extra_latents)
+                    if spatial_tokens is not None:
+                        extra_latents = extra_latents.to(spatial_tokens.dtype)
+                        if getattr(self, 'spatial_fuser', None) is not None:
+                            if self.config.framework.image_edit_model.fuser_type == 'mmdit':
+                                spatial_tokens, extra_latents = self.spatial_fuser(spatial_tokens, extra_latents)
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                B, L, D = extra_latents.shape
+
+                                # 确保长度可以被整除
+                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
+
+                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
+                                # 每个 chunk 的形状为 (B, L // view_num, D)
+                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
+
+                                fusion_results = []
+                                for i in range(view_num):
+                                    # 对每一份执行融合操作
+                                    # 注意：如果 spatial_tokens 是共享的，直接传入；如果是多视角的，可能也需要拆分
+                                    ri = self.spatial_fuser(spatial_tokens, latent_chunks[i])
+                                    fusion_results.append(ri)
+
+                                # 将结果拼接回来
+                                extra_latents = torch.cat(fusion_results, dim=1) 
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                B, L, D = extra_latents.shape
+
+                                # 确保长度可以被整除
+                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
+
+                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
+                                # 每个 chunk 的形状为 (B, L // view_num, D)
+                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
+
+                                fusion_results = []
+                                for i in range(view_num):
+                                    # 对每一份执行融合操作
+                                    ri = self.spatial_fuser(latent_chunks[i], spatial_tokens)
+                                    fusion_results.append(ri)
+
+                                # 将结果拼接回来
+                                extra_latents = torch.cat(fusion_results, dim=1) 
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'concat':
+                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
+                                extra_latents = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                spatial_tokens = self.spatial_fuser(extra_latents)
+                        
+                    else:
+                        spatial_tokens = extra_latents
+                last_hidden = self.fuser(last_hidden, spatial_tokens)
+            elif self.config.framework.fuser.type == 'concat':
+                # last_hidden_state: [B, seq_len, H]
+                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
+                spatial_tokens = None
+                if getattr(self, 'spatial_model', None) is not None:
+                    if self.spatial_type == "vggt":
+                        spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
+                    else:
+                        raise NotImplementedError
+
+                    spatial_tokens = self.spatial_projector(spatial_tokens)
+
+                if extra_latents is not None:
+                    extra_latents = self.image_edit_projector(extra_latents)
+                    if spatial_tokens is not None:
+                        spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
+                    else:
+                        spatial_tokens = extra_latents
+                last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
+                if extra_latents is not None:
+                    last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
+            elif self.config.framework.fuser.type == 'mlayer':
+                num_layers = self.config.framework.layer_qformer.num_layers
+                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
+                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
+                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
+                spatial_interval = len(aggregated_tokens_list) // num_layers
+                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
+                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
+                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
+
+                cat_conditions = []
+                for layer_index in range(num_layers):
+                    if extra_latents is not None:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
+                        )
+                    else:
+                        layer_features = torch.cat(
+                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
+                        )
+                    cat_conditions.append(layer_features)
+
+                last_hidden = self.fuser(cat_conditions)[0]
+            else:
+                raise NotImplementedError
+           
+        return last_hidden
+            
+
+
+    def forward(
+        self,
+        examples: List[dict] = None,
+        **kwargs,
+    ) -> Tuple:
+        """
+
+        """
+
+        batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
+        instructions = [example["lang"] for example in examples]  # [B, str]
+        actions = [example["action"] for example in examples]  # label [B， len, 7]
+        
+        state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
+        use_state = getattr(self.config.framework.action_model, 'use_state', False)
+        if not use_state:
+            state = None
+
+        mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
+
+        last_hidden = self.forward_pass_VLM(batch_images, instructions, mv_feat)
+
+        # Step 4: Action Expert Forward and Loss
+        with torch.autocast("cuda", dtype=torch.float32):
+            actions = torch.tensor(
+                np.array(actions), device=last_hidden.device, dtype=last_hidden.dtype
+            )  # [B, T_full, action_dim]
+            actions_target = actions[:, -(self.future_action_window_size+1):, :]  # (B, chunk_len, action_dim)
+
+            repeated_diffusion_steps = (
+                self.config.trainer.get("repeated_diffusion_steps", 4) if self.config and self.config.trainer else 4
+            )
+            actions_target_repeated = actions_target.repeat(repeated_diffusion_steps, 1, 1)
+            last_hidden_repeated = last_hidden.repeat(repeated_diffusion_steps, 1, 1)
+            
+            state_repeated = None
+            if state is not None:
+                state = torch.tensor(
+                    np.array(state), device=last_hidden.device, dtype=last_hidden.dtype
+                )
+                state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
+
+            action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
+
+        return {"action_loss": action_loss}
+
+    @torch.inference_mode()
+    def predict_action(
+        self,
+        examples: List[dict],
+        **kwargs: str,
+    ) -> np.ndarray:
+        """
+        Steps:
+          1. Resize images to training resolution (if specified)
+          2. Encode with QwenVL (hidden states retained)
+          6. Return normalized action trajectory
+        Returns:
+            dict:
+                normalized_actions (np.ndarray): Shape [B, T, action_dim], diffusion-sampled normalized actions.
+        """
+        if type(examples) is not list:
+            examples = [examples]
+        batch_images = [to_pil_preserve(example["image"]) for example in examples]  #  [B，[PLT]]
+        instructions = [example["lang"] for example in examples]  # [B, str]
+    
+        state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
+        use_state = getattr(self.config.framework.action_model, 'use_state', False)
+        if not use_state:
+            state = None
+        train_obs_image_size = getattr(self.config.datasets.vla_data, "image_size", None)
+        if train_obs_image_size:
+            batch_images = resize_images(batch_images, target_size=train_obs_image_size)
+    
+        last_hidden = self.forward_pass_VLM(batch_images, instructions)
+
+        state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
+        # import ipdb
+        # ipdb.set_trace()
+        # Step 4: Action Expert Forward
+        with torch.autocast("cuda", dtype=torch.float32):
+            pred_actions = self.action_model.predict_action(last_hidden, state)  # (B, chunk_len, action_dim)
+
+        normalized_actions = pred_actions.detach().cpu().numpy()
+        return {"normalized_actions": normalized_actions}
+
+
+
+if __name__ == "__main__":
+    from omegaconf import OmegaConf
+    import debugpy
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config_yaml", type=str, default="./starVLA/config/training/starvla_cotrain_oxe.yaml", help="Path to YAML config")
+    args, clipargs = parser.parse_known_args()
+
+    # debugpy.listen(("0.0.0.0", 10092))
+    # print("🔍 Rank 0 waiting for debugger attach on port 10092...")
+    # debugpy.wait_for_client()
+
+    cfg = OmegaConf.load(args.config_yaml)
+    # try get model
+    cfg.framework.action_model.action_hidden_dim = 2048
+
+    # cfg.framework.qwenvl.base_vlm = f"{CHECKPOINT_BASEDIR}/Florence-2-large"
+    
+
+    model: Qwen_GR00T = Qwen_GR00T(cfg)
+    print(model)
+
+
+
+    # fake sample 
+    image = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
+    # Create a sample
+    sample = {
+        "action": np.random.uniform(-1, 1, size=(16, 7)).astype(np.float16), # action_chunk, action_dim
+        "image": [image], # three views
+        "lang": "Put all the toys in the child's room - the three board games (two on the bed and one on the table), the two jigsaw puzzles on the table, and the tennis ball on the table - inside the toy box on the table in the child's room.",
+        # "state" : np.random.uniform(-1, 1, size=(1, 44)).astype(np.float16), # chunk, state_dim
+    }
+
+    batch  = [sample, sample]  # batch size 2
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    forward_output = model(batch)
+    action_loss = forward_output['action_loss']
+    print(f"Action Loss: {action_loss.item()}")
+
+    # test predict action
+    predict_output = model.predict_action(examples=[sample]) #, state=[batch[0]["state"]]
+    normalized_actions = predict_output['normalized_actions']
+    print(f"Unnormalized Action: {normalized_actions}")
+
+    # # Advance: try forward model with dataloader
+    # # can be fake sample， but here get from dataloader for simpler
+    vla_dataset_cfg = cfg.datasets.vla_data
+    dataset = get_vla_dataset(data_cfg=vla_dataset_cfg)
+
+    from torch.utils.data import DataLoader
+    from starVLA.dataloader.lerobot_datasets import get_vla_dataset, collate_fn
+    
+    train_dataloader = DataLoader(
+        dataset,
+        batch_size=2,
+        num_workers=1,  # For Debug
+        collate_fn=collate_fn,
+    )
+    # 
+    for batch in tqdm(train_dataloader, desc="Processing Batches"):
+        batch
+        break
+
+    # try get model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    model(batch)
+
+    action = model.predict_action(examples=batch)
+    print("Finished")
