@@ -607,6 +607,15 @@ class Qwen_GR00TSpatial(baseframework):
                     self.spatial_fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
                 elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
                     self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                elif self.config.framework.image_edit_model.fuser_type == 'gated_fusion':
+                    self.geo2mv = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
+                    self.mv2geo = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=2560)
+                    self.spatial_fuser = nn.Sequential(
+                        nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
+                        nn.GELU(),
+                        nn.Linear(config.framework.spatial_projector.output_dim, 1),
+                        nn.Sigmoid()
+                    )
                 # else:
                 #     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
@@ -777,6 +786,24 @@ class Qwen_GR00TSpatial(baseframework):
                             elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
                                 extra_latents = torch.cat([spatial_tokens, extra_latents], dim=1)
                                 spatial_tokens = self.spatial_fuser(extra_latents)
+                            elif self.config.framework.image_edit_model.fuser_type == "gated_fusion":
+                                B, L, D = extra_latents.shape
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
+                                # fuse spatial feature to multi-view feature
+                                fusion_results = [spatial_tokens]
+                                spatial_aware_feat = []
+                                for i in range(view_num):
+                                    # 对每一份执行融合操作
+                                    ri = self.mv2geo(latent_chunks[i], spatial_tokens)
+                                    spatial_aware_feat.append(ri)
+                                spatial_aware_feat = torch.cat(spatial_aware_feat, dim=1)
+                                refined_spatial_tokens = self.geo2mv(spatial_tokens, spatial_aware_feat)
+                                gate = self.spatial_fuser(torch.cat([spatial_tokens,refined_spatial_tokens], dim=-1))
+                                spatial_tokens = gate * spatial_tokens + (1 - gate) * refined_spatial_tokens
+                                
+                                # 将结果拼接回来
+                                spatial_tokens = torch.cat([spatial_tokens, spatial_aware_feat], dim=1)
                         
                     else:
                         spatial_tokens = extra_latents

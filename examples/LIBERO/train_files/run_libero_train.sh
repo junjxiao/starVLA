@@ -10,7 +10,7 @@
 # export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00TSpatialAML #QwenGR00T, QwenGR00TSpatial
+Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
 freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 
@@ -76,12 +76,12 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --trainer.max_train_steps 100000 \
   --trainer.save_interval 100 \
   --trainer.logging_frequency 1 \
-  --trainer.eval_interval 1 \
+  --trainer.eval_interval 1000000 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
   --framework.image_edit_model.view_num 2 \
-  --framework.image_edit_model.fuser_type 'self_attention' \
+  --framework.image_edit_model.fuser_type 'gated_fusion' \
   --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
   --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
   --trainer.reload_modules qwen_vl_interface \
