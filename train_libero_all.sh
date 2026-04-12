@@ -2,7 +2,7 @@
 
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0411_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
+run_id=0412_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -44,7 +44,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 nebulactl run mdl --queue=amap_app_vtspoi_mi308_nu8 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
-                  --worker_count=4 \
+                  --worker_count=1 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \
