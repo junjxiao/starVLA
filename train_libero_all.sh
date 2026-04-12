@@ -2,7 +2,7 @@
 
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com,DEEPSPEED_CONFIG_FILE=/mnt/workspace/junjin/code/starVLA/starVLA/config/deepseeds/deepspeed_zero2.yaml"
 
-run_id=0412_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
+run_id=0412_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_mlp_fusion_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
