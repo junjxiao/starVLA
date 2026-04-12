@@ -50,7 +50,7 @@ if ds_config_file is not None:
     deepspeed_plugin = DeepSpeedPlugin(hf_ds_config=ds_config_file)
 else:
     deepspeed_plugin = DeepSpeedPlugin()
-accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
+accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin, mixed_precision='bf16')
 accelerator.print(accelerator.state)
 
 # Sane Defaults
