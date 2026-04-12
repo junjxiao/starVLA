@@ -1,8 +1,8 @@
 #!/bin/bash
+# DEEPSPEED_CONFIG_FILE=./starVLA/config/deepseeds/zero2.json
+ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com,DEEPSPEED_CONFIG_FILE=./starVLA/config/deepseeds/zero2.json"
-
-run_id=0413_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_mlp_gated_tranformer_bs16_4gpus
+run_id=0413_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -21,7 +21,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --wandb_project ${run_id}\
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
-      --framework.image_edit_model.fuser_type mlp_gated_tranformer \
+      --framework.image_edit_model.fuser_type gated_fusion \
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
       "
       # --trainer.learning_rate.qwen_vl_interface 3.0e-05 \
