@@ -2,7 +2,7 @@
 
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com,DEEPSPEED_CONFIG_FILE=./starVLA/config/deepseeds/zero2.json"
 
-run_id=0412_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
+run_id=0413_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatial \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -41,9 +41,9 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 # amap-poi_ppu810e
 # amap_app_common_h20_na175
 # amap_app_vtspoi_h20
-nebulactl run mdl --queue=amap_app_vtspoi_mi308_nu8 \
+nebulactl run mdl --queue=amap-poi_ppu810e \
                   --entry="starVLA/training/train_starvla.py" \
-                  --algo_name=pytorch260 \
+                  --algo_name=pytorch280 \
                   --worker_count=4 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \

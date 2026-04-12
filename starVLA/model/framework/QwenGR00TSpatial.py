@@ -632,7 +632,7 @@ class Qwen_GR00TSpatial(baseframework):
                         nn.Linear(config.framework.spatial_projector.output_dim, 1),
                         nn.Sigmoid()
                     )
-                elif self.config.framework.image_edit_model.fuser_type == 'gated_mlp_transformer':
+                elif self.config.framework.image_edit_model.fuser_type == 'mlp_gated_tranformer':
                     self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
                     self.view_selector = nn.Sequential(
                         nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
@@ -842,7 +842,7 @@ class Qwen_GR00TSpatial(baseframework):
                                 gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
                                 fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
                                 spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'gated_mlp_transformer':
+                            elif self.config.framework.image_edit_model.fuser_type == 'mlp_gated_tranformer':
                                 view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
                                 assert view_num == 2, f"view num should be 2"
                                 spatial_token_num = spatial_tokens.shape[1]
