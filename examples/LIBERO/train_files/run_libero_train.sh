@@ -81,11 +81,11 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
   --framework.image_edit_model.view_num 2 \
-  --framework.image_edit_model.fuser_type 'gated_fusion' \
+  --framework.image_edit_model.fuser_type 'mlp_fusion' \
   --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
-  --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
-  --trainer.reload_modules qwen_vl_interface \
-  --trainer.learning_rate.qwen_vl_interface 3.0e-05
+  # --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
+  # --trainer.reload_modules qwen_vl_interface \
+  # --trainer.learning_rate.qwen_vl_interface 3.0e-05
 
   # --trainer.pretrained_checkpoint /mnt/workspace/zengshuang.zs/output/pretrain/1223_oxe_pretrain_Qwen3VL4BFast/checkpoints/steps_48000_pytorch_model.pt \
   # --trainer.reload_modules qwen_vl_interface \

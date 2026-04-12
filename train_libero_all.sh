@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
+ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com,DEEPSPEED_CONFIG_FILE=/mnt/workspace/junjin/code/starVLA/starVLA/config/deepseeds/deepspeed_zero2.yaml"
 
 run_id=0412_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_gated_fusion_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
@@ -44,7 +44,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 nebulactl run mdl --queue=amap_app_vtspoi_mi308_nu8 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch260 \
-                  --worker_count=1 \
+                  --worker_count=4 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \

@@ -632,6 +632,17 @@ class Qwen_GR00TSpatial(baseframework):
                         nn.Linear(config.framework.spatial_projector.output_dim, 1),
                         nn.Sigmoid()
                     )
+                elif self.config.framework.image_edit_model.fuser_type == 'gated_mlp_transformer':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                    self.view_selector = nn.Sequential(
+                        nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
+                        nn.GELU(),
+                        nn.Linear(config.framework.spatial_projector.output_dim, 1),
+                        nn.Sigmoid()
+                    )
+                    self.spatial_fuser2 = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+
+                    
                 # else:
                 #     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
@@ -831,6 +842,18 @@ class Qwen_GR00TSpatial(baseframework):
                                 gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
                                 fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
                                 spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'gated_mlp_transformer':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                assert view_num == 2, f"view num should be 2"
+                                spatial_token_num = spatial_tokens.shape[1]
+                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                fused_tokens = self.spatial_fuser(fused_tokens)
+                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
+                                fused_extra_latents = torch.chunk(fused_tokens[:,spatial_token_num:,:], chunks=view_num, dim=1)
+                                gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
+                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
+                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
+                                spatial_tokens = self.spatial_fuser2(spatial_tokens)
                             elif self.config.framework.image_edit_model.fuser_type == 'residual_fusion':
                                 view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
                                 assert view_num == 2, f"view num should be 2"
