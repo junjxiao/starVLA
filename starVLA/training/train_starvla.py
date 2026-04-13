@@ -19,7 +19,7 @@ import os
 # os.environ["NCCL_SHM_DISABLE"] = "0"
 # os.environ["NCCL_IB_DISABLE"] = "1"  # 除非你有真实的 IB 网络，否则设为 1
 # os.environ["NCCL_SOCKET_IFNAME"] = "lo" # 尝试禁用 socket 通信，强制走 P2P/SHM。如果报错再改回 bond0
-# os.environ["HIP_VISIBLE_DEVICES"] = "0,1,2,3"
+
 from pathlib import Path
 from typing import Tuple
 from torch.utils.data import Dataset, DataLoader
@@ -50,7 +50,7 @@ if ds_config_file is not None:
     deepspeed_plugin = DeepSpeedPlugin(hf_ds_config=ds_config_file)
 else:
     deepspeed_plugin = DeepSpeedPlugin()
-accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin, mixed_precision='bf16')
+accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
 accelerator.print(accelerator.state)
 
 # Sane Defaults

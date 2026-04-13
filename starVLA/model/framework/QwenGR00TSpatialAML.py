@@ -37,8 +37,9 @@ IGNORE_INDEX = -100
 
 from starVLA.model.framework.base_framework import baseframework
 from starVLA.model.modules.vlm import get_vlm_model
-from starVLA.model.modules.action_model.GR00T_ActionHeader import get_action_model, FlowmatchingActionHead
+# from starVLA.model.modules.action_model.GR00T_ActionHeader import get_action_model, FlowmatchingActionHead
 from starVLA.model.modules.action_model.JAT_ActionHeader import get_action_model, FlowmatchingActionHead
+
 from starVLA.training.trainer_utils.trainer_tools import resize_images
 from starVLA.model.tools import FRAMEWORK_REGISTRY
 
@@ -544,8 +545,8 @@ class TokenDownsampler(nn.Module):
         
         return output_tokens
 
-@FRAMEWORK_REGISTRY.register("QwenGR00TSpatialAML")
-class Qwen_GR00TSpatialAML(baseframework):
+@FRAMEWORK_REGISTRY.register("QwenGR00TSpatial")
+class Qwen_GR00TSpatial(baseframework):
     """
     Multimodal vision-language-action model.
 
@@ -617,6 +618,33 @@ class Qwen_GR00TSpatialAML(baseframework):
                         nn.Linear(config.framework.spatial_projector.output_dim, 1),
                         nn.Sigmoid()
                     )
+                elif self.config.framework.image_edit_model.fuser_type == 'mlp_fusion':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                    self.view_selector = nn.Sequential(
+                        nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
+                        nn.GELU(),
+                        nn.Linear(config.framework.spatial_projector.output_dim, 1),
+                        nn.Sigmoid()
+                    )
+                elif self.config.framework.image_edit_model.fuser_type == 'residual_fusion':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                    self.view_selector = nn.Sequential(
+                        nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
+                        nn.GELU(),
+                        nn.Linear(config.framework.spatial_projector.output_dim, 1),
+                        nn.Sigmoid()
+                    )
+                elif self.config.framework.image_edit_model.fuser_type == 'mlp_gated_tranformer':
+                    self.spatial_fuser = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+                    self.view_selector = nn.Sequential(
+                        nn.Linear(config.framework.spatial_projector.output_dim * 2, config.framework.spatial_projector.output_dim),
+                        nn.GELU(),
+                        nn.Linear(config.framework.spatial_projector.output_dim, 1),
+                        nn.Sigmoid()
+                    )
+                    self.spatial_fuser2 = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
+
+                    
                 # else:
                 #     raise NotImplementedError
         if getattr(self.config.framework, 'fuser', None) is None:
@@ -805,7 +833,44 @@ class Qwen_GR00TSpatialAML(baseframework):
                                 
                                 # 将结果拼接回来
                                 spatial_tokens = torch.cat([spatial_tokens, spatial_aware_feat], dim=1)
-                        
+                            elif self.config.framework.image_edit_model.fuser_type == 'mlp_fusion':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                assert view_num == 2, f"view num should be 2"
+                                spatial_token_num = spatial_tokens.shape[1]
+                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                fused_tokens = self.spatial_fuser(fused_tokens)
+                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
+                                fused_extra_latents = torch.chunk(fused_tokens[:,spatial_token_num:,:], chunks=view_num, dim=1)
+                                gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
+                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
+                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
+                            elif self.config.framework.image_edit_model.fuser_type == 'mlp_gated_tranformer':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                assert view_num == 2, f"view num should be 2"
+                                spatial_token_num = spatial_tokens.shape[1]
+                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                fused_tokens = self.spatial_fuser(fused_tokens)
+                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
+                                fused_extra_latents = torch.chunk(fused_tokens[:,spatial_token_num:,:], chunks=view_num, dim=1)
+                                gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
+                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
+                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
+                                spatial_tokens = self.spatial_fuser2(spatial_tokens)
+                            elif self.config.framework.image_edit_model.fuser_type == 'residual_fusion':
+                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
+                                assert view_num == 2, f"view num should be 2"
+                                spatial_token_num = spatial_tokens.shape[1]
+                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
+                                fused_tokens = self.spatial_fuser(fused_tokens)
+                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
+                                fused_extra_latents = fused_tokens[:,spatial_token_num:,:]
+                                residual = fused_extra_latents - extra_latents
+                                residual = torch.chunk(residual, chunks=view_num, dim=1) # 
+                                fused_extra_latents = torch.chunk(fused_extra_latents, chunks=view_num, dim=1)
+                                gate = self.view_selector(torch.cat(residual, dim=-1))
+                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
+                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
+
                     else:
                         spatial_tokens = extra_latents
                 last_hidden = self.fuser(last_hidden, spatial_tokens)
