@@ -11,7 +11,7 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs
       --datasets.vla_data.data_root_dir /mnt/workspace/vla_dataset/benchmark \
       --datasets.vla_data.data_mix robotwin_mix \
       --datasets.vla_data.per_device_batch_size 4 \
-      --trainer.vla_data.video_backend torchvision_av \
+      --datasets.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
       --trainer.max_train_steps 150000 \
       --trainer.save_interval 1000 \
