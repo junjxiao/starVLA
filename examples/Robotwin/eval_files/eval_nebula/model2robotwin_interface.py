@@ -107,7 +107,7 @@ class ModelClient:
         action_chunk_size = self.action_chunk_size
 
         if step % action_chunk_size == 0 or self.raw_actions is None:
-            response = self.client.predict_action(example, **vla_input)
+            response = self.client.predict_action([example], **vla_input)
             # try:
             normalized_actions = response["normalized_actions"]  # B, chunk, D
             # except KeyError:
@@ -145,15 +145,33 @@ class ModelClient:
 
     @staticmethod
     def unnormalize_actions(normalized_actions: np.ndarray, action_norm_stats: Dict[str, np.ndarray]) -> np.ndarray:
+        """
+        Unnormalize actions from [-1, 1] back to original range, with gripper channels
+        treated as binary switches using a 0.5 threshold.
+
+        - Non-gripper dims (mask=True): linear de-normalization using min / max.
+        - Gripper-related dims (mask=False): keep normalized value but binarize
+          using 0.5 as the threshold before sending to the simulator.
+        """
         mask = action_norm_stats.get("mask", np.ones_like(action_norm_stats["min"], dtype=bool))
+        # Ensure mask is a boolean numpy array for broadcasting and bitwise ops
+        # mask = np.array(mask, dtype=bool)
         action_high, action_low = np.array(action_norm_stats["max"]), np.array(action_norm_stats["min"])
         normalized_actions = np.clip(normalized_actions, -1, 1)
 
+        # Linear un-normalization for non-gripper channels; keep normalized
+        # value for gripper channels (mask=False).
         actions = np.where(
             mask,
             0.5 * (normalized_actions + 1) * (action_high - action_low) + action_low,
             normalized_actions,
         )
+
+        # # For gripper channels, apply a hard 0.5 threshold so that the simulator
+        # # receives clean 0/1 commands.
+        # gripper_mask = ~mask
+        # if np.any(gripper_mask):
+        #     actions[..., gripper_mask] = (actions[..., gripper_mask] >= 0.5).astype(actions.dtype)
 
         return actions
 

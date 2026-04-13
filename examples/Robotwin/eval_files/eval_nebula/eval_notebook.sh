@@ -1,19 +1,18 @@
 #!/bin/bash
-# eval "$(conda shell.bash hook)"
-# conda activate python3.10
+eval "$(conda shell.bash hook)"
+conda activate python3.10
 #in ppu
 # export SAPIEN_RENDER_ENGINE="cpu"
 # === 更改你的配置 ===
 STARVLA_PATH=/mnt/workspace/junjin/code/starVLAPretrain
 # policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2_mix/0205_robotwin2_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5/checkpoints/steps_60000_pytorch_model.pt
 # log_path=/mnt/workspace/zengshuang.zs/eval/robotwin/0205_robotwin2_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_step60000
-policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2_mix/0206_robotwin_mix_ratio_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_reload/checkpoints/steps_35000_pytorch_model.pt
-log_path=/mnt/workspace/zengshuang.zs/eval/robotwin/0206_robotwin_mix_ratio_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_reload_step35000
-NUM_GPUS=1
+policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2_mix/0213_robotwin_mix_ratio_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_810e/checkpoints/steps_100000_pytorch_model.pt
+log_path=/mnt/workspace/zengshuang.zs/eval/robotwin/0213_robotwin_mix_ratio_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_810e_100000_clean
 test_num=10
 task_config="demo_clean"
 # task_config="demo_randomized"
-gpus=(0 1 2)
+gpus=(0)
 # gpus=(0 1 2 3 4 5 6 7)
 # === === ===
 
@@ -33,56 +32,56 @@ cd "$ROBOTWIN_PATH"
 
 # 获取任务列表
 task_names=(
-    # adjust_bottle
-    # beat_block_hammer
-    # blocks_ranking_rgb
-    # blocks_ranking_size
-    # click_alarmclock
-    # click_bell
-    # dump_bin_bigbin
-    # grab_roller
-    # handover_block
-    # handover_mic
-    # hanging_mug
-    # lift_pot
+    adjust_bottle
+    beat_block_hammer
+    blocks_ranking_rgb
+    blocks_ranking_size
+    click_alarmclock
+    click_bell
+    dump_bin_bigbin
+    grab_roller
+    handover_block
+    handover_mic
+    hanging_mug
+    lift_pot
     move_can_pot
-    # move_pillbottle_pad
-    # move_playingcard_away
-    # move_stapler_pad
-    # open_laptop
+    move_pillbottle_pad
+    move_playingcard_away
+    move_stapler_pad
+    open_laptop
     open_microwave
-    # pick_diverse_bottles
-    # pick_dual_bottles
-    # place_a2b_left
-    # place_a2b_right
-    # place_bread_basket
+    pick_diverse_bottles
+    pick_dual_bottles
+    place_a2b_left
+    place_a2b_right
+    place_bread_basket
     place_bread_skillet
-    # place_burger_fries # split from here
-    # place_can_basket
+    place_burger_fries # split from here
+    place_can_basket
     place_cans_plasticbox
-    # place_container_plate
-    # place_dual_shoes
-    # place_empty_cup
-    # place_fan
-    # place_mouse_pad
-    # place_object_basket
-    # place_object_scale
+    place_container_plate
+    place_dual_shoes
+    place_empty_cup
+    place_fan
+    place_mouse_pad
+    place_object_basket
+    place_object_scale
     place_object_stand
-    # place_phone_stand
-    # place_shoe
-    # press_stapler
-    # put_bottles_dustbin
-    # put_object_cabinet
+    place_phone_stand
+    place_shoe
+    press_stapler
+    put_bottles_dustbin
+    put_object_cabinet
     rotate_qrcode
-    # scan_object
-    # shake_bottle_horizontally
-    # shake_bottle
-    # stack_blocks_three
-    # stack_blocks_two
+    scan_object
+    shake_bottle_horizontally
+    shake_bottle
+    stack_blocks_three
+    stack_blocks_two
     stack_bowls_three
-    # stack_bowls_two
-    # stamp_seal
-    # turn_switch
+    stack_bowls_two
+    stamp_seal
+    turn_switch
 )
 # task_names=("$@")
 total_tasks=${#task_names[@]}

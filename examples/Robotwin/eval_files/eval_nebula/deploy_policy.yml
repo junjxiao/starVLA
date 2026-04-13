@@ -5,7 +5,7 @@ ckpt_setting: null
 seed: null
 log_path: null
 instruction_type: unseen
-
+test_num: null
 # StarVLA Client Parameters
 host: "127.0.0.1"
 port: 5694
