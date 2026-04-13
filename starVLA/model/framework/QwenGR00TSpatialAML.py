@@ -545,8 +545,8 @@ class TokenDownsampler(nn.Module):
         
         return output_tokens
 
-@FRAMEWORK_REGISTRY.register("QwenGR00TSpatial")
-class Qwen_GR00TSpatial(baseframework):
+@FRAMEWORK_REGISTRY.register("QwenGR00TSpatialAML")
+class Qwen_GR00TSpatialAML(baseframework):
     """
     Multimodal vision-language-action model.
 
