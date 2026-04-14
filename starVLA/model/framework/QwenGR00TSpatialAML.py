@@ -698,7 +698,7 @@ class Qwen_GR00TSpatialAML(baseframework):
                             "images": images,
                             "prompts": [prompts[i]] * len(images),
                             "generator": torch.Generator("cuda").manual_seed(43),
-                            "num_inference_steps": 8,
+                            "num_inference_steps": self.config.framework.image_edit_model.num_inference_steps,
                             "guidance_scale": 1.0,
                             "output_type": "latent",
                             "device": 'cuda',

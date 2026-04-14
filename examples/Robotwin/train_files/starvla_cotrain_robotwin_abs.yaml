@@ -64,6 +64,7 @@ framework:
     view_num: 1
     fuser_type: mmdit
     read_from_local: false
+    num_inference_steps: 2
 
 datasets:
   vlm_data:

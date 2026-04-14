@@ -65,6 +65,7 @@ framework:
     view_num: 1
     fuser_type: mmdit
     read_from_local: true
+    num_inference_steps: 8
 datasets:
   vlm_data:
     dataset_py: vlm_datasets

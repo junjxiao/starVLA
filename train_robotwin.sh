@@ -4,7 +4,7 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 
 
 
-run_id=0413_robotwin_Qwen3vlGR00TAML_vggt_cross_mlp_gated_tranformer_bs4
+run_id=0414_robotwin_Qwen3vlGR00TAML_vggt_cross_mlp_gated_tranformer_bs4
 args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -24,9 +24,9 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
-      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BFast_bs2048/checkpoints/steps_8000_pytorch_model.pt \
-      --trainer.reload_modules qwen_vl_interface \
+      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0413_robotwin_Qwen3vlGR00TAML_vggt_cross_mlp_gated_tranformer_bs4/checkpoints/steps_2000_pytorch_model.pt \
       "
+      # --trainer.reload_modules qwen_vl_interface \
       # --trainer.resume_from_checkpoint null \
 
 # 打印将要传递的参数，方便调试
