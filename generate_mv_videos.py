@@ -86,8 +86,10 @@ def main():
     print(f"🌍 Rank {rank}/{world_size} | GPU: {local_rank}")
 
     # 路径
-    BASE_DIR = f"/mnt/xlab-nas-1/junjin/dataset/libero_mv_feats/{args.dataset_name}"
-    ORIG_DIR = os.path.join('/mnt/nas-data-3/yangyandan/libero', f'{args.dataset_name}', 'videos/chunk-000/observation.images.image')
+    # BASE_DIR = f"/mnt/xlab-nas-1/junjin/dataset/libero_mv_feats/{args.dataset_name}"
+    BASE_DIR = os.path.join("/mnt/xlab-nas-1/junjin/dataset/robotwin_mv_feats", args.dataset_name)
+    ORIG_DIR = os.path.join('/mnt/workspace/vla_dataset/benchmark', args.dataset_name, 'videos/chunk-000/observation.images.cam_high')
+    # ORIG_DIR = os.path.join('/mnt/nas-data-3/yangyandan/libero', f'{args.dataset_name}', 'videos/chunk-000/observation.images.image')
     L_DIR = os.path.join(BASE_DIR, "limages")
     R_DIR = os.path.join(BASE_DIR, "rimages")
     os.makedirs(L_DIR, exist_ok=True)
@@ -163,18 +165,18 @@ def main():
                     "images": [img],
                     "prompts": [prompt],
                     "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 8,
+                    "num_inference_steps": 40,
                     "guidance_scale": 1.0,
-                    "output_type": "latent", #latent
+                    "output_type": "pil", #latent
                     "device": 'cuda',
-                    'width': 256,
-                    'height': 256
+                    'width': 1024,
+                    'height': 1024
                 }
                 output = pipeline(**inputs)
-                # output[0].save(os.path.join(l_path, f"{i}.jpg"))
+                output[0].save(os.path.join(l_path, f"{i}.jpg"))
                 # import ipdb
                 # ipdb.set_trace()
-                np.save(os.path.join(l_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
+                # np.save(os.path.join(l_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
 
 
 
@@ -185,16 +187,16 @@ def main():
                     "images": [img],
                     "prompts": [prompt],
                     "generator": torch.Generator("cuda").manual_seed(43),
-                    "num_inference_steps": 8,
+                    "num_inference_steps": 40,
                     "guidance_scale": 1.0,
-                    "output_type": "latent", #latent
+                    "output_type": "pil", #latent
                     "device": 'cuda',
-                    'width': 256,
-                    'height': 256
+                    'width': 1024,
+                    'height': 1024
                 }
                 output = pipeline(**inputs)
-                np.save(os.path.join(r_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
-                # output[0].save(os.path.join(r_path, f"{i}.jpg"))
+                # np.save(os.path.join(r_path, f"{i}.npy"), output.detach().cpu().to(torch.float32).numpy())
+                output[0].save(os.path.join(r_path, f"{i}.jpg"))
 
             # 每 20 帧清理缓存防止 OOM
             # if (i + 1) % 20 == 0:
