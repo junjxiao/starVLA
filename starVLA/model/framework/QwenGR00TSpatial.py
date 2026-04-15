@@ -144,12 +144,11 @@ class Attention(nn.Module):
 class SelfAttention(nn.Module):
     def __init__(self, embed_dim=2560, num_heads=16, dropout=0.1, bias=True):
         """
-        Self-Attention Module
+        Self-Attention Module with Residual Connection and Layer Norm
         
         Args:
-            embed_dim (int): 输入 token 的维度，默认为 2560
-            num_heads (int): 注意力头的数量。注意：embed_dim 必须能被 num_heads 整除。
-                             2560 / 16 = 160 (每个头的维度)
+            embed_dim (int): 输入 token 的维度
+            num_heads (int): 注意力头的数量
             dropout (float): Dropout 概率
             bias (bool): 线性层是否使用 bias
         """
@@ -163,8 +162,11 @@ class SelfAttention(nn.Module):
         assert self.head_dim * num_heads == self.embed_dim, \
             f"embed_dim ({embed_dim}) must be divisible by num_heads ({num_heads})"
 
+        # 【新增】层归一化 LayerNorm
+        # Pre-LN 架构：在输入 Attention 之前进行归一化
+        self.norm = nn.LayerNorm(embed_dim)
+
         # 定义 Q, K, V 的线性投影层
-        # 输入: (bs, l, 2560) -> 输出: (bs, l, 2560)
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
@@ -180,65 +182,66 @@ class SelfAttention(nn.Module):
     def forward(self, x, mask=None):
         """
         Args:
-            x: Input tensor of shape (bs, l, embed_dim), e.g., (bs, l, 2560)
-            mask: Optional attention mask of shape (bs, 1, 1, l) or (bs, l, l)
-                  True/1 indicates positions to attend to, False/0 indicates masked positions.
+            x: Input tensor of shape (bs, l, embed_dim)
+            mask: Optional attention mask
         
         Returns:
-            Output tensor of shape (bs, l, embed_dim)
+            Output tensor of shape (bs, l, embed_dim) with residual connection
         """
         bs, l, _ = x.shape
 
-        # 1. 线性投影得到 Q, K, V
-        # Shape: (bs, l, embed_dim)
-        q = self.q_proj(x)
-        k = self.k_proj(x)
-        v = self.v_proj(x)
+        # ==========================================
+        # 【关键修改 1】: Pre-LN 归一化
+        # ==========================================
+        # 对输入进行归一化，有助于梯度流动
+        x_normed = self.norm(x)
+
+        # 1. 线性投影得到 Q, K, V (使用归一化后的输入)
+        q = self.q_proj(x_normed)
+        k = self.k_proj(x_normed)
+        v = self.v_proj(x_normed)
 
         # 2. 多头 reshape 和 transpose
-        # 从 (bs, l, embed_dim) -> (bs, l, num_heads, head_dim) -> (bs, num_heads, l, head_dim)
         q = q.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
         k = k.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(bs, l, self.num_heads, self.head_dim).transpose(1, 2)
 
         # 3. 计算 Attention Scores
-        # 使用 PyTorch 2.0+ 优化的 scaled_dot_product_attention (支持 Flash Attention)
-        # 如果 PyTorch 版本 < 2.0，请查看下方的 fallback 实现
         if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
-            # mask 需要是 boolean 类型或者 float (-inf) 类型
-            # 这里假设 mask 是 boolean: True for keep, False for mask out
             attn_output = torch.nn.functional.scaled_dot_product_attention(
                 q, k, v, 
                 attn_mask=mask, 
                 dropout_p=self.dropout.p if self.training else 0.0,
-                is_causal=False # 如果是 Decoder 自回归任务设为 True，否则 False
+                is_causal=False
             )
         else:
             # Fallback for older PyTorch versions
-            # Q @ K^T
-            # (bs, num_heads, l, head_dim) @ (bs, num_heads, head_dim, l) -> (bs, num_heads, l, l)
             scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
             
             if mask is not None:
-                # 假设 mask 为 0 的地方需要屏蔽，将其设为 -inf
-                # 注意：根据 mask 的具体格式可能需要调整 broadcast 逻辑
                 scores = scores.masked_fill(mask == 0, -1e9)
             
             attn_weights = torch.softmax(scores, dim=-1)
             attn_weights = self.dropout(attn_weights)
-            
-            # Attn @ V
-            # (bs, num_heads, l, l) @ (bs, num_heads, l, head_dim) -> (bs, num_heads, l, head_dim)
             attn_output = torch.matmul(attn_weights, v)
 
         # 4. 合并多头
-        # (bs, num_heads, l, head_dim) -> (bs, l, num_heads, head_dim) -> (bs, l, embed_dim)
         attn_output = attn_output.transpose(1, 2).contiguous().view(bs, l, self.embed_dim)
 
         # 5. 最终线性投影
-        output = self.out_proj(attn_output)
+        output_proj = self.out_proj(attn_output)
         
-        return output
+        # 应用 Dropout 到投影后的输出 (可选，但推荐)
+        output_proj = self.dropout(output_proj)
+
+        # ==========================================
+        # 【关键修改 2】: 残差连接 (Residual Connection)
+        # ==========================================
+        # 将原始输入 x 加到注意力输出上
+        # 注意：这里加的是原始的 x，而不是 x_normed
+        out = x + output_proj
+        
+        return out
 
 class MMDITBlock(nn.Module):
     def __init__(self, dim=2560, num_heads=40, mlp_ratio=4.0):
@@ -327,51 +330,52 @@ def preprocess_images(image_list, target_size, mode='crop'): #  [B，[PLT]]
     # First process all images and collect their shapes
     for imgs in image_list:
         epi_images = []
-        for img in imgs:
-            width, height = img.size
+        img = imgs[0]
+        # for img in imgs:
+        width, height = img.size
 
-            if mode == "pad":
-                # Make the largest dimension 518px while maintaining aspect ratio
-                if width >= height:
-                    new_width = target_size
-                    new_height = round(height * (new_width / width) / 14) * 14  # Make divisible by 14
-                else:
-                    new_height = target_size
-                    new_width = round(width * (new_height / height) / 14) * 14  # Make divisible by 14
-            else:  # mode == "crop"
-                # Original behavior: set width to 518px
+        if mode == "pad":
+            # Make the largest dimension 518px while maintaining aspect ratio
+            if width >= height:
                 new_width = target_size
-                # Calculate height maintaining aspect ratio, divisible by 14
-                new_height = round(height * (new_width / width) / 14) * 14
+                new_height = round(height * (new_width / width) / 14) * 14  # Make divisible by 14
+            else:
+                new_height = target_size
+                new_width = round(width * (new_height / height) / 14) * 14  # Make divisible by 14
+        else:  # mode == "crop"
+            # Original behavior: set width to 518px
+            new_width = target_size
+            # Calculate height maintaining aspect ratio, divisible by 14
+            new_height = round(height * (new_width / width) / 14) * 14
 
-            # Resize with new dimensions (width, height)
-            # img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
-            img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
-            img = to_tensor(img)  # Convert to tensor (0, 1)
+        # Resize with new dimensions (width, height)
+        # img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+        img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+        img = to_tensor(img)  # Convert to tensor (0, 1)
 
-            # Center crop height if it's larger than 518 (only in crop mode)
-            if mode == "crop" and new_height > target_size:
-                start_y = (new_height - target_size) // 2
-                img = img[:, start_y : start_y + target_size, :]
+        # Center crop height if it's larger than 518 (only in crop mode)
+        if mode == "crop" and new_height > target_size:
+            start_y = (new_height - target_size) // 2
+            img = img[:, start_y : start_y + target_size, :]
 
-            # For pad mode, pad to make a square of target_size x target_size
-            if mode == "pad":
-                h_padding = target_size - img.shape[1]
-                w_padding = target_size - img.shape[2]
+        # For pad mode, pad to make a square of target_size x target_size
+        if mode == "pad":
+            h_padding = target_size - img.shape[1]
+            w_padding = target_size - img.shape[2]
 
-                if h_padding > 0 or w_padding > 0:
-                    pad_top = h_padding // 2
-                    pad_bottom = h_padding - pad_top
-                    pad_left = w_padding // 2
-                    pad_right = w_padding - pad_left
+            if h_padding > 0 or w_padding > 0:
+                pad_top = h_padding // 2
+                pad_bottom = h_padding - pad_top
+                pad_left = w_padding // 2
+                pad_right = w_padding - pad_left
 
-                    # Pad with white (value=1.0)
-                    img = torch.nn.functional.pad(
-                        img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
-                    )
+                # Pad with white (value=1.0)
+                img = torch.nn.functional.pad(
+                    img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+                )
 
-            shapes.add((img.shape[1], img.shape[2]))
-            epi_images.append(img)
+        shapes.add((img.shape[1], img.shape[2]))
+        epi_images.append(img)
         batch_images.append(torch.stack(epi_images))
 
     # Check if we have different shapes

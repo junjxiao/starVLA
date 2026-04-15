@@ -2,7 +2,7 @@
 # ,DEEPSPEED_CONFIG_FILE=/mnt/workspace/junjin/code/starVLA/starVLA/config/deepseeds/zero2.json
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0413_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_bs16_4gpus
+run_id=0415_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_bs16_4gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -11,7 +11,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --datasets.vla_data.per_device_batch_size 16 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
-      --trainer.max_train_steps 30000 \
+      --trainer.max_train_steps 50000 \
       --trainer.save_interval 5000 \
       --trainer.logging_frequency 100 \
       --trainer.eval_interval 1000000 \
@@ -26,6 +26,8 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --trainer.learning_rate.qwen_vl_interface 3.0e-05 \
       --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
       --trainer.reload_modules qwen_vl_interface \
+      --framework.action_model.future_action_window_size 9 \
+      --framework.action_model.action_horizon 10 \
       "
       
 
