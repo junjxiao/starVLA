@@ -3,7 +3,7 @@
 # 定义数组
 sizes=(2519 2591 2518 2402)
 tasks=("libero_10" "libero_goal" "libero_object" "libero_spatial")
-total_slices=(4 4 4 4)
+total_slices=(8 4 4 4)
 
 for i in "${!sizes[@]}"; do
     size=${sizes[$i]}
@@ -41,6 +41,7 @@ for i in "${!sizes[@]}"; do
         start_idx=$end_idx
     done
 done
+
 # nebulactl run mdl --queue=amap_app_common_h20_na175 \
 #                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_10 0 10"\
 #                   --user_params="" \
@@ -54,7 +55,7 @@ done
 
 
 # nebulactl run mdl --queue=amap-poi_ppu810e \
-#                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_10 0 630"\
+#                   --entry="bash examples/LIBERO-plus/eval_files/eval_nebula/eval_libero_in_one.sh libero_object 1260 1889"\
 #                   --user_params="" \
 #                   --worker_count=1 \
 #                   --algoame=pytorch260\
