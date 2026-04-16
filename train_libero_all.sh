@@ -2,13 +2,13 @@
 # ,DEEPSPEED_CONFIG_FILE=/mnt/workspace/junjin/code/starVLA/starVLA/config/deepseeds/zero2.json
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0415_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_bs16_4gpus
+run_id=0416_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs8_8gpus
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/nas-data-3/yangyandan/libero \
       --datasets.vla_data.data_mix libero_all_ration \
-      --datasets.vla_data.per_device_batch_size 16 \
+      --datasets.vla_data.per_device_batch_size 8 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
       --trainer.max_train_steps 40000 \
@@ -23,8 +23,8 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.image_edit_model.view_num 2 \
       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
-      --trainer.learning_rate.qwen_vl_interface 3.0e-05 \
-      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
+      --trainer.learning_rate.qwen_vl_interface 1.0e-05 \
+      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
       --trainer.reload_modules qwen_vl_interface \
       --framework.action_model.future_action_window_size 9 \
       --framework.action_model.action_horizon 10 \
