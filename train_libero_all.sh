@@ -24,13 +24,13 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
       --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
       --trainer.learning_rate.qwen_vl_interface 1.0e-05 \
-      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
+      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0416_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs8_8gpus/checkpoints/steps_5000_pytorch_model.pt \
       --trainer.reload_modules qwen_vl_interface \
       --framework.action_model.future_action_window_size 9 \
       --framework.action_model.action_horizon 10 \
       "
       
-
+# /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt
             
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_images \
       # --framework.spatial_model null \
@@ -47,7 +47,7 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 nebulactl run mdl --queue=amap-poi_ppu810e \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch280 \
-                  --worker_count=32 \
+                  --worker_count=4 \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \
