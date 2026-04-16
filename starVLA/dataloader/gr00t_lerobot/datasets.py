@@ -784,8 +784,10 @@ class LeRobotSingleDataset(Dataset):
             # r_image = Image.open(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.jpg'))
             # data['video.primary_image_l'] = l_image
             # data['video.primary_image_r'] = r_image
-            l_image = np.load(os.path.join(self.mv_dataset_path, 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
-            r_image = np.load(os.path.join(self.mv_dataset_path, 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
+            chunk_index = self.get_episode_chunk(trajectory_id)
+
+            l_image = np.load(os.path.join(self.mv_dataset_path, 'chunk-{:03d}'.format(chunk_index), 'limages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
+            r_image = np.load(os.path.join(self.mv_dataset_path, 'chunk-{:03d}'.format(chunk_index), 'rimages', 'episode_{:06d}'.format(trajectory_id), f'{base_index}.npy'))
             data['mv_feat.l'] = l_image[0]
             data['mv_feat.r'] = r_image[0]
         return data

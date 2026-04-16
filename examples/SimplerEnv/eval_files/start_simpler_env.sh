@@ -2,24 +2,47 @@
 
 echo `which python`
 
-export SimplerEnv_PATH=/mnt/workspace/zengshuang.zs/SimplerEnv
-export PYTHONPATH=/mnt/workspace/junjin/conda/simpler_env:${PYTHONPATH}
-export PYTHONPATH=$(pwd):${PYTHONPATH}
 
-MODEL_PATH=/mnt/workspace/junjin/code/starVLA/checkpoints/1222_simpler_Qwen3vlGR00T_vggt_cross/checkpoints/steps_20000_pytorch_model.pt #/mnt/workspace/zengshuang.zs/checkpoints/Qwen-GR00T-Bridge/checkpoints/steps_45000_pytorch_model.pt
-logging_dir=/mnt/workspace/junjin/code/starVLA/outputs/simpler/simpler_Qwen3vlGR00T_vggt_cross_step20000
+############# Environment setup #############
+cd /home/jye624/Projcets/starVLA
+export star_vla_python=/home/jye624/.conda/envs/starVLA/bin/python
+export sim_python=/home/jye624/.conda/envs/simpler_env/bin/python
+export SimplerEnv_PATH=/project/vonneumann1/jye624/Projcets/SimplerEnv
+export PYTHONPATH=$(pwd):${PYTHONPATH}
+export LD_LIBRARY_PATH=/home/jye624/.conda/envs/simpler_env/lib:${LD_LIBRARY_PATH}
+port=6678 
+gpu_id=0
+
+your_ckpt=./results/Checkpoints/0414_oxe_bridge_rt_1_QwenOFT/checkpoints/steps_20000_pytorch_model.pt
+
+
+MODEL_PATH=${1:-"${your_ckpt}"}
+port=${2:-"${port}"}
+
+############# Environment setup #############
+
+#### build output directory #####
 ckpt_path=${MODEL_PATH}
-TSET_NUM=3
+ckpt_dir=$(dirname "${ckpt_path}")
+ckpt_base=$(basename "${ckpt_path}")
+ckpt_name="${ckpt_base%.*}"
+
+# Create output directories
+output_server_dir="${ckpt_dir}/output_server"
+output_eval_dir="${ckpt_dir}/output_eval"
+mkdir -p "${output_server_dir}"
+mkdir -p "${output_eval_dir}"
+#### build output directory #####
+
+TSET_NUM=1
 # export DEBUG=1
 
-port=56706
+IFS=',' read -r -a CUDA_DEVICES <<< "$CUDA_VISIBLE_DEVICES"
+NUM_GPUS=${#CUDA_DEVICES[@]} 
 
-# IFS=',' read -r -a CUDA_DEVICES <<< "$CUDA_VISIBLE_DEVICES"
-# NUM_GPUS=${#CUDA_DEVICES[@]} 
-
-# echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
-# echo "CUDA_DEVICES: ${CUDA_DEVICES[@]}"
-# echo "NUM_GPUS: $NUM_GPUS"
+echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+echo "CUDA_DEVICES: ${CUDA_DEVICES[@]}"
+echo "NUM_GPUS: $NUM_GPUS"
 
 scene_name=bridge_table_1_v1
 robot=widowx
@@ -28,21 +51,19 @@ robot_init_x=0.147
 robot_init_y=0.028
 
 declare -a ENV_NAMES=(
-  StackGreenCubeOnYellowCubeBakedTexInScene-v0
-  PutCarrotOnPlateInScene-v0
-  PutSpoonOnTableClothInScene-v0
+  # StackGreenCubeOnYellowCubeBakedTexInScene-v0
+  # PutCarrotOnPlateInScene-v0
+  # PutSpoonOnTableClothInScene-v0
 )
-
-
 
 for i in "${!ENV_NAMES[@]}"; do
   env="${ENV_NAMES[i]}"
   for ((run_idx=1; run_idx<=TSET_NUM; run_idx++)); do
-    log_file="${logging_dir}/${env}_run${run_idx}_$(date +%Y%m%d_%H%M%S).log"
-    mkdir -p "${logging_dir}"
-    echo "▶️ Launching task [${env}] run#${run_idx} on GPU $gpu_id, log → ${log_file}"
+  # Path for log file
+    task_log="${output_eval_dir}/${ckpt_name}_${env}_run${run_idx}.log"
+    echo "▶️ Launching task [${env}] run#${run_idx}, log → ${task_log}"
 
-    CUDA_VISIBLE_DEVICES=3 python examples/SimplerEnv/eval_files/start_simpler_env.py \
+    ${sim_python} examples/SimplerEnv/eval_files/start_simpler_env.py \
       --ckpt-path ${ckpt_path} \
       --port ${port} \
       --robot ${robot} \
@@ -57,10 +78,11 @@ for i in "${!ENV_NAMES[@]}"; do
       --robot-init-y ${robot_init_y} ${robot_init_y} 1 \
       --obj-variation-mode episode \
       --obj-episode-range 0 24 \
-      --logging-dir ${logging_dir} \
       --robot-init-rot-quat-center 0 0 0 1 \
       --robot-init-rot-rpy-range 0 0 1 0 0 1 0 0 1 \
-      2>&1 | tee "${log_file}"
+      > "${task_log}" 2>&1 &
+
+    sleep 6
 
   done
 done
@@ -78,11 +100,11 @@ robot_init_y=0.06
 for i in "${!ENV_NAMES_V2[@]}"; do
   env="${ENV_NAMES_V2[i]}"
   for ((run_idx=1; run_idx<=TSET_NUM; run_idx++)); do
-    log_file="${logging_dir}/${env}_run${run_idx}_$(date +%Y%m%d_%H%M%S).log"
-    mkdir -p "${logging_dir}"
-    echo "▶️ Launching V2 task [${env}] run#${run_idx} on GPU $gpu_id, log → ${log_file}"
+  # Path for log file
+    task_log="${output_eval_dir}/${ckpt_name}_${env}_run${run_idx}.log"
+    echo "▶️ Launching V2 task [${env}] run#${run_idx}, log → ${task_log}"
 
-    CUDA_VISIBLE_DEVICES=3 python examples/SimplerEnv/eval_files/start_simpler_env.py \
+    ${sim_python} examples/SimplerEnv/eval_files/start_simpler_env.py\
       --ckpt-path ${ckpt_path} \
       --port ${port} \
       --robot ${robot} \
@@ -97,11 +119,12 @@ for i in "${!ENV_NAMES_V2[@]}"; do
       --robot-init-y ${robot_init_y} ${robot_init_y} 1 \
       --obj-variation-mode episode \
       --obj-episode-range 0 24 \
-      --logging-dir ${logging_dir} \
       --robot-init-rot-quat-center 0 0 0 1 \
-      --robot-init-rot-rpy-range 0 0 1 0 0 1 0 0 1 \
-      2>&1 | tee "${log_file}"
+      --robot-init-rot-rpy-range 0 0 1 0 0 1 0 0 1
+      # > "${task_log}" 2>&1 &
+
+    sleep 6
   done
 done
 
-echo "✅ Finished"
+# echo "✅ Finished"

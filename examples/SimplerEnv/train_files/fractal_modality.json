@@ -12,19 +12,19 @@
             "start": 2,
             "end": 3
         },
-        "roll": {
+        "rx": {
             "start": 3,
             "end": 4
         },
-        "pitch": {
+        "ry": {
             "start": 4,
             "end": 5
         },
-        "yaw": {
+        "rz": {
             "start": 5,
             "end": 6
         },
-        "pad": {
+        "rw": {
             "start": 6,
             "end": 7
         },
@@ -64,8 +64,8 @@
         }
     },
     "video": {
-        "image_0": {
-            "original_key": "observation.images.image_0"
+        "image": {
+            "original_key": "observation.images.image"
         }
     },
     "annotation": {
