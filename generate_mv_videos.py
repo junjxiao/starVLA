@@ -278,7 +278,7 @@ def main():
     args = parser.parse_args()
 
     # === 1. 设置设备 (单卡固定为 cuda:0) ===
-    device = "cuda:0"
+    device = "cuda"
     
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available")
@@ -377,6 +377,7 @@ def main():
                         "num_inference_steps": 40,
                         "guidance_scale": 1.0,
                         "output_type": "pil",
+                        "device": 'cuda',
                         "width": 256,
                         "height": 256
                     }

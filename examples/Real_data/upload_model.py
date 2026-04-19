@@ -1,5 +1,5 @@
 import os
-os.environ['MODELSCOPE_API_TOKEN']='ms-a66cc400-443e-4989-b05b-87b017fbc2fc'
+os.environ['MODELSCOPE_API_TOKEN']='ms-5902e780-0218-4815-90d3-ed05bc1fbdc3'
 from modelscope.hub.snapshot_download import snapshot_download
 import modelscope
 from modelscope.hub.api import HubApi
@@ -46,8 +46,8 @@ from pathlib import Path
 
 api = HubApi()
 api.upload_folder(
-repo_id='junjxiao/LongCat-lora-9000',
-folder_path='/mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000',
+repo_id='junjxiao/robotwin',
+folder_path='/mnt/workspace/junjin/code/starVLA/checkpoints/robotwin',
 commit_message='Initial release',
 repo_type='model'
 )
