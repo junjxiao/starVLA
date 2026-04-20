@@ -12,8 +12,8 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} # let LIBERO find the websocket tools fro
 host="127.0.0.1"
 base_port=9880
 unnorm_key="franka"
-your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0331_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_cross_bs8_4gpus/checkpoints/steps_30000_pytorch_model.pt
-output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0331_liberoall_Qwen3vlGR00T_vggt_longcat_view2_cross_cross_bs8_4gpus_step30000
+your_ckpt=/mnt/workspace/junjin/code/starVLA/checkpoints/0416_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_4gpus/checkpoints/steps_30000_pytorch_model.pt
+output_dir=/mnt/workspace/junjin/code/starVLA/outputs/libero/0416_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_4gpus_step30000
 folder_name=$(echo "$your_ckpt" | awk -F'/' '{print $(NF-2)"_"$(NF-1)"_"$NF}')
 # === End of environment variable configuration ===
 ###########################################################################################
@@ -29,7 +29,7 @@ num_trials_per_task=50
 video_out_path="${output_dir}/${task_suite_name}/${folder_name}"
 log_file="${LOG_DIR}/${task_suite_name}.log"
 
-CUDA_VISIBLE_DEVICES=3 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
+CUDA_VISIBLE_DEVICES=0 ${LIBERO_Python} ./examples/LIBERO/eval_files/eval_libero.py \
     --args.pretrained-path ${your_ckpt} \
     --args.host "$host" \
     --args.port $base_port \
