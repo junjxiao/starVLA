@@ -384,6 +384,8 @@ class StateActionTransform(InvertibleModalityTransform):
         return self
 
     def set_metadata(self, dataset_metadata: DatasetMetadata):
+        # import ipdb
+        # ipdb.set_trace()
         dataset_statistics = dataset_metadata.statistics
         modality_metadata = dataset_metadata.modalities
 

@@ -7,11 +7,18 @@ from abc import ABC, abstractmethod
 
 from starVLA.dataloader.gr00t_lerobot.datasets import ModalityConfig
 from starVLA.dataloader.gr00t_lerobot.transform.base import ComposedModalityTransform, ModalityTransform
-from starVLA.dataloader.gr00t_lerobot.transform.concat import ConcatTransform
+from starVLA.dataloader.gr00t_lerobot.transform.padding import BimanualPadTransform
+# from starVLA.dataloader.gr00t_lerobot.transform.concat import ConcatTransform
 from starVLA.dataloader.gr00t_lerobot.transform.state_action import (
     StateActionSinCosTransform,
     StateActionToTensor,
     StateActionTransform,
+)
+from starVLA.dataloader.gr00t_lerobot.transform.concat import (
+    ConcatTransform,
+    ConcatStateActionOnlyTransform, 
+    ConcatOXEDeltaChunkTransform,
+    ConcatDeltaChunkTransform,
 )
 from starVLA.dataloader.gr00t_lerobot.transform.video import (
     VideoColorJitter,
@@ -513,6 +520,81 @@ class Libero4in1MVDataConfig:
 
         return ComposedModalityTransform(transforms=transforms)
 
+# class Libero4in1DataConfig:
+#     video_keys = [
+#         "video.primary_image",
+#         "video.wrist_image",
+#     ]
+    
+#     state_keys = [
+#         "state.x",
+#         "state.y",
+#         "state.z",
+#         "state.roll",
+#         "state.pitch",
+#         "state.yaw",
+#         "state.pad",
+#         "state.gripper",
+#     ]
+#     action_keys = [
+#         "action.x",
+#         "action.y",
+#         "action.z",
+#         "action.roll",
+#         "action.pitch",
+#         "action.yaw",
+#         "action.gripper",
+#     ]
+    
+#     language_keys = ["annotation.human.action.task_description"]
+
+#     observation_indices = [0]
+#     action_indices = list(range(8))
+
+
+#     def modality_config(self):
+#         video_modality = ModalityConfig(
+#             delta_indices=self.observation_indices,
+#             modality_keys=self.video_keys,
+#         )
+#         state_modality = ModalityConfig(
+#             delta_indices=self.observation_indices,
+#             modality_keys=self.state_keys,
+#         )
+#         action_modality = ModalityConfig(
+#             delta_indices=self.action_indices,
+#             modality_keys=self.action_keys,
+#         )
+#         language_modality = ModalityConfig(
+#             delta_indices=self.observation_indices,
+#             modality_keys=self.language_keys,
+#         )
+#         modality_configs = {
+#             "video": video_modality,
+#             "state": state_modality,
+#             "action": action_modality,
+#             "language": language_modality,
+#         }
+#         return modality_configs
+
+#     def transform(self):
+#         transforms = [
+#             # action transforms
+#             StateActionToTensor(apply_to=self.action_keys),
+#             StateActionTransform(
+#             apply_to=self.action_keys,
+#             normalization_modes={
+#                 "action.x": "min_max",
+#                 "action.y": "min_max",
+#                 "action.z": "min_max",
+#                 "action.roll": "min_max",
+#                 "action.pitch": "min_max",
+#                 "action.yaw": "min_max",
+#             },
+#         ),
+#         ]
+
+#         return ComposedModalityTransform(transforms=transforms)
 class Libero4in1DataConfig:
     video_keys = [
         "video.primary_image",
@@ -542,7 +624,8 @@ class Libero4in1DataConfig:
     language_keys = ["annotation.human.action.task_description"]
 
     observation_indices = [0]
-    action_indices = list(range(8))
+    action_indices = list(range(10))
+    # action_indices = list(range(16))
 
 
     def modality_config(self):
@@ -572,8 +655,21 @@ class Libero4in1DataConfig:
 
     def transform(self):
         transforms = [
+            # # video transforms
+            # VideoToTensor(apply_to=self.video_keys),
+            # VideoCrop(apply_to=self.video_keys, scale=0.95),
+            # VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="cubic"),
+            # VideoColorJitter(
+            #     apply_to=self.video_keys,
+            #     brightness=0.2,
+            #     contrast=0.2,
+            #     saturation=0.2,
+            #     hue=0.0,
+            # ),
+            # VideoToNumpy(apply_to=self.video_keys),
             # action transforms
             StateActionToTensor(apply_to=self.action_keys),
+            StateActionToTensor(apply_to=self.state_keys),
             StateActionTransform(
             apply_to=self.action_keys,
             normalization_modes={
@@ -585,6 +681,21 @@ class Libero4in1DataConfig:
                 "action.yaw": "min_max",
             },
         ),
+
+            ConcatStateActionOnlyTransform(
+            state_concat_order=self.state_keys,
+            action_concat_order=self.action_keys,
+            ),
+
+            BimanualPadTransform(
+                arm_state_dim=7, # 单臂
+                arm_action_dim=7,
+                max_state_dim=14,
+                max_action_dim=14,
+                single_arm_placement="right",
+                pad_value_state=0.0,
+                pad_value_action=0.0,
+            ),
         ]
 
         return ComposedModalityTransform(transforms=transforms)

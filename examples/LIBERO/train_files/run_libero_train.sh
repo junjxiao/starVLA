@@ -16,8 +16,8 @@ freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action
 config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
-libero_data_root=/mnt/nas-data-3/yangyandan/libero
-data_mix=libero_all # libero_all
+libero_data_root=/mnt/xlab-nas-2/vla_dataset/benchmark/libero
+data_mix=libero_all_ration # libero_all
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
 run_id=test_libero10
 # === End of environment variable configuration ===
@@ -82,12 +82,13 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
   --framework.fuser.type 'cross_attention' \
   --framework.image_edit_model.view_num 2 \
   --framework.image_edit_model.fuser_type 'mlp_gated_tranformer' \
-  --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
   --trainer.learning_rate.qwen_vl_interface 3.0e-05 \
-  --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
-  --trainer.reload_modules qwen_vl_interface \
+  --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
+  --trainer.reload_modules qwen_vl_interface,action_model \
+  --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
   --framework.action_model.future_action_window_size 9 \
   --framework.action_model.action_horizon 10
+  #   
   # --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0202_pretrain_Qwen3VL4BFast_GOAR_task_balance/checkpoints/steps_10000_pytorch_model.pt \
   # --trainer.reload_modules qwen_vl_interface \
   # --trainer.learning_rate.qwen_vl_interface 3.0e-05

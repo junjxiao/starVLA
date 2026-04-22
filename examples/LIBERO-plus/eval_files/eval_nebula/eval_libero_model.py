@@ -240,6 +240,8 @@ class PolicyModel:
             normalized_actions = response["normalized_actions"] # B, chunk, D        
             
             normalized_actions = normalized_actions[0]    
+            if normalized_actions.shape[1] > 7:
+                normalized_actions = normalized_actions[:,-7:]
             self.raw_actions = self.unnormalize_actions(normalized_actions=normalized_actions, action_norm_stats=self.action_norm_stats)
         
         raw_actions = self.raw_actions[step % action_chunk_size][None]    

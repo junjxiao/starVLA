@@ -120,6 +120,8 @@ class ModelClient:
                 raise KeyError(f"Key 'normalized_actions' not found in response data: {response['data'].keys()}")
             
             normalized_actions = normalized_actions[0]    
+            if normalized_actions.shape[1] > 7:
+                normalized_actions = normalized_actions[:,-7:]
             self.raw_actions = self.unnormalize_actions(normalized_actions=normalized_actions, action_norm_stats=self.action_norm_stats)
         
         raw_actions = self.raw_actions[step % action_chunk_size][None]    

@@ -133,5 +133,5 @@ if __name__ == "__main__":
     
     # root_path = sys.argv[1]
     # output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    root_path = '/mnt/workspace/junjin/code/starVLAPretrain/outputs/robotwin/0203_robotwin2_mix_QwenJAT_vggt_sft_64GPUs_OAR_balance_1w_test_num_100_step50000/demo_clean'
+    root_path = '/mnt/workspace/junjin/code/starVLA/outputs/robotwin/result'
     aggregate_results(root_path, None)

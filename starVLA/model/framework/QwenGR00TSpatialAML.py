@@ -677,32 +677,18 @@ class Qwen_GR00TSpatialAML(baseframework):
         projector = nn.Linear(config.framework.spatial_model.output_dim, spatial_projector_cfg.output_dim)
         return projector
 
-    def forward_pass_image_edit_model(self, images, prompt=None):
+    def forward_pass_image_edit_model(self, images, prompt=None, render_mv_img=False):
         view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
         prompts = ['Rotate the camera view to the left', 'Rotate the camera view to the right']
-        with torch.no_grad():
-            with torch.autocast("cuda", dtype=torch.bfloat16):
-                if view_num == 1:
-                    inputs = {
-                        "images": images,
-                        "prompts": random.choices(prompts, k=len(images)),
-                        "generator": torch.Generator("cuda").manual_seed(43),
-                        "num_inference_steps": 4,
-                        "guidance_scale": 1.0,
-                        "output_type": "latent",
-                        "device": 'cuda',
-                        'height': 256,
-                        'width': 256,
-                    }
-                    output = self.image_edit_model(**inputs)
-                else:
-                    outputs = []
-                    for i in range(view_num):
+        if not render_mv_img:
+            with torch.no_grad():
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    if view_num == 1:
                         inputs = {
                             "images": images,
-                            "prompts": [prompts[i]] * len(images),
+                            "prompts": random.choices(prompts, k=len(images)),
                             "generator": torch.Generator("cuda").manual_seed(43),
-                            "num_inference_steps": self.config.framework.image_edit_model.num_inference_steps,
+                            "num_inference_steps": 4,
                             "guidance_scale": 1.0,
                             "output_type": "latent",
                             "device": 'cuda',
@@ -710,12 +696,48 @@ class Qwen_GR00TSpatialAML(baseframework):
                             'width': 256,
                         }
                         output = self.image_edit_model(**inputs)
-                        outputs.append(output)
-                    output = torch.cat(outputs, dim=1)
+                    else:
+                        outputs = []
+                        for i in range(view_num):
+                            inputs = {
+                                "images": images,
+                                "prompts": [prompts[i]] * len(images),
+                                "generator": torch.Generator("cuda").manual_seed(43),
+                                "num_inference_steps": self.config.framework.image_edit_model.num_inference_steps,
+                                "guidance_scale": 1.0,
+                                "output_type": "latent",
+                                "device": 'cuda',
+                                'height': 256,
+                                'width': 256,
+                            }
+                            output = self.image_edit_model(**inputs)
+                            outputs.append(output)
+                        output = torch.cat(outputs, dim=1)
+            return output
+        if render_mv_img:
+            mv_imgs = []
+            outputs = []
+            for i in range(view_num):
+                inputs = {
+                    "images": images,
+                    "prompts": [prompts[i]] * len(images),
+                    "generator": torch.Generator("cuda").manual_seed(43),
+                    "num_inference_steps": 50,
+                    "guidance_scale": 1.0,
+                    "output_type": "pil",
+                    "device": 'cuda',
+                    'height': 256,
+                    'width': 256,
+                }
+                latent, mv_img = self.image_edit_model(**inputs)
+                outputs.append(latent)
+                mv_imgs.append(mv_img)
+            output = torch.cat(outputs, dim=1)
+            return output, mv_imgs
 
-        return output
         
-    def forward_pass_VLM(self, batch_images, instructions, mv_feat=None):
+        
+    def forward_pass_VLM(self, batch_images, instructions, mv_feat=None, render_mv_img=False):
 
         # Step 1: QWenVL input format
         qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
@@ -748,8 +770,11 @@ class Qwen_GR00TSpatialAML(baseframework):
                     extra_latents = torch.tensor(np.array(mv_feat), device=qwenvl_outputs.hidden_states[-1].device, dtype=qwenvl_outputs.hidden_states[-1].dtype)
                 else:
                     primary_image = [image[0] for image in batch_images]
-                    extra_latents = self.forward_pass_image_edit_model(primary_image)
-            
+                    
+                    if render_mv_img:
+                        extra_latents, mv_imgs = self.forward_pass_image_edit_model(primary_image, render_mv_img=True)
+                    else:
+                        extra_latents = self.forward_pass_image_edit_model(primary_image)
 
         # step 3: fuse spatial tokens and qwen tokens
         with torch.autocast("cuda", dtype=torch.float32):
@@ -924,8 +949,10 @@ class Qwen_GR00TSpatialAML(baseframework):
                 last_hidden = self.fuser(cat_conditions)[0]
             else:
                 raise NotImplementedError
-           
-        return last_hidden
+        if render_mv_img:
+            return last_hidden, mv_imgs, gate
+        else:
+            return last_hidden
             
 
 
@@ -937,11 +964,12 @@ class Qwen_GR00TSpatialAML(baseframework):
         """
 
         """
-
+        import ipdb
+        ipdb.set_trace()
         batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
         instructions = [example["lang"] for example in examples]  # [B, str]
         actions = [example["action"] for example in examples]  # label [B， len, 7]
-        
+        action_mask = [example["action_mask"] for example in examples] if "action_mask" in examples[0] else None
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         use_state = getattr(self.config.framework.action_model, 'use_state', False)
         if not use_state:
@@ -949,7 +977,7 @@ class Qwen_GR00TSpatialAML(baseframework):
 
         mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
 
-        last_hidden = self.forward_pass_VLM(batch_images, instructions, mv_feat)
+        last_hidden = self.forward_pass_VLM(batch_images, instructions, mv_feat=mv_feat)
 
         # Step 4: Action Expert Forward and Loss
         with torch.autocast("cuda", dtype=torch.float32):
@@ -971,7 +999,15 @@ class Qwen_GR00TSpatialAML(baseframework):
                 )
                 state_repeated = state.repeat(repeated_diffusion_steps, 1, 1)
 
-            action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated)  # (B, chunk_len, action_dim)
+            action_mask_repeated = None
+            if action_mask is not None:
+                action_mask_tensor = torch.tensor(
+                    np.array(action_mask), device=last_hidden.device, dtype=torch.bool
+                )  # [B, action_dim]
+                action_mask_repeated = action_mask_tensor.repeat(repeated_diffusion_steps, 1)  # [B*repeated_diffusion_steps, action_dim]
+
+
+            action_loss = self.action_model(last_hidden_repeated, actions_target_repeated, state_repeated, action_mask=action_mask_repeated)  # (B, chunk_len, action_dim)
 
         return {"action_loss": action_loss}
 
@@ -979,6 +1015,7 @@ class Qwen_GR00TSpatialAML(baseframework):
     def predict_action(
         self,
         examples: List[dict],
+        render_mv_img = False,
         **kwargs: str,
     ) -> np.ndarray:
         """
@@ -1002,8 +1039,11 @@ class Qwen_GR00TSpatialAML(baseframework):
         train_obs_image_size = getattr(self.config.datasets.vla_data, "image_size", None)
         if train_obs_image_size:
             batch_images = resize_images(batch_images, target_size=train_obs_image_size)
-    
-        last_hidden = self.forward_pass_VLM(batch_images, instructions)
+        if render_mv_img:
+            last_hidden, mv_imgs, gate = self.forward_pass_VLM(batch_images, instructions, render_mv_img=render_mv_img)
+            return {"mv_imgs": mv_imgs, "gate": gate}
+        else:
+            last_hidden = self.forward_pass_VLM(batch_images, instructions, render_mv_img=render_mv_img)
 
         state = torch.from_numpy(np.array(state)).to(last_hidden.device, dtype=last_hidden.dtype) if state is not None else None
         # import ipdb
@@ -1014,6 +1054,7 @@ class Qwen_GR00TSpatialAML(baseframework):
 
         normalized_actions = pred_actions.detach().cpu().numpy()
         return {"normalized_actions": normalized_actions}
+        
 
 
 

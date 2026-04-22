@@ -52,7 +52,7 @@ from functools import partial
 from typing import Tuple, List
 import pickle
 
-LE_ROBOT_MODALITY_FILENAME = "meta/modality.json"
+LE_ROBOT_MODALITY_FILENAME = "meta/modality_old.json"
 LE_ROBOT_EPISODE_FILENAME = "meta/episodes.jsonl"
 LE_ROBOT_TASKS_FILENAME = "meta/tasks.jsonl"
 LE_ROBOT_INFO_FILENAME = "meta/info.json"
@@ -60,6 +60,7 @@ LE_ROBOT_STATS_FILENAME = "meta/stats_gr00t.json"
 LE_ROBOT_DATA_FILENAME = "data/*/*.parquet"
 LE_ROBOT_STEPS_FILENAME = "meta/steps.pkl"
 EPSILON = 5e-4
+
 
 def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
     """Calculate the dataset statistics of all columns for a list of parquet files."""
@@ -1584,19 +1585,30 @@ class LeRobotMixtureDataset(Dataset):
 
                     for k in mv_keys:
                         images.append(data[k].resize((224, 224)))
-
+                # import ipdb
+                # ipdb.set_trace()
                 # Get language and action data
                 language = data[dataset.modality_keys["language"][0]][0]
-                action = []
-                for action_key in dataset.modality_keys["action"]:
-                    action.append(data[action_key])
-                action = np.concatenate(action, axis=1).astype(np.float16)
-
-                state = []
-                for state_key in dataset.modality_keys["state"]:
-                    state.append(data[state_key])
-                state = np.concatenate(state, axis=1).astype(np.float16)
-
+                # action = []
+                # for action_key in dataset.modality_keys["action"]:
+                #     action.append(data[action_key])
+                # action = np.concatenate(action, axis=1).astype(np.float16)
+                # import ipdb
+                # ipdb.set_trace()
+                action = data['action'].numpy().astype(np.float16)
+                action_mask = None
+                
+                if "action_mask" in data:
+                    action_mask = data["action_mask"].numpy().astype(bool)
+                
+                # state = []
+                # for state_key in dataset.modality_keys["state"]:
+                #     state.append(data[state_key])
+                # state = np.concatenate(state, axis=1).astype(np.float16)
+                state = data['state'].numpy().astype(np.float16)
+                ret = dict(action=action, image=images, state=state, lang=language)
+                if action_mask is not None:
+                    ret.update({'action_mask': action_mask})
                 mv_feat = None
                 if 'mv_feat.l' in data:
                     mv_feat = []
@@ -1607,9 +1619,9 @@ class LeRobotMixtureDataset(Dataset):
                     # import ipdb
                     # ipdb.set_trace()
                     mv_feat = np.concatenate(mv_feat, axis=0).astype(np.float32)
-                    return dict(action=action, image=images, state=state, lang=language, mv_feat=mv_feat)
-                else:
-                    return dict(action=action, image=images, state=state, lang=language)
+                    ret.update({'mv_feat': mv_feat})
+
+                return ret
                 
             except Exception as e:
                 last_exception = e

@@ -24,9 +24,10 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
-      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0413_robotwin_Qwen3vlGR00TAML_vggt_cross_mlp_gated_tranformer_bs4/checkpoints/steps_2000_pytorch_model.pt \
+      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BFast_bs2048/checkpoints/steps_14000_pytorch_model.pt \
+      --trainer.reload_modules qwen_vl_interface \
       "
-      # --trainer.reload_modules qwen_vl_interface \
+      # 
       # --trainer.resume_from_checkpoint null \
 
 # 打印将要传递的参数，方便调试
