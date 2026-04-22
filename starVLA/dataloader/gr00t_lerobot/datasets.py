@@ -1592,8 +1592,8 @@ class LeRobotMixtureDataset(Dataset):
 
                     for k in mv_keys:
                         images.append(data[k].resize((224, 224)))
-                import ipdb
-                ipdb.set_trace()
+                # import ipdb
+                # ipdb.set_trace()
                 # Get language and action data
                 language = data[dataset.modality_keys["language"][0]][0]
                 
