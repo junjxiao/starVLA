@@ -17,6 +17,7 @@ framework:
 
   action_model:
     action_model_type: DiT-B
+    action_hidden_dim: 1024
     hidden_size: 1024     # 和 DiT 最后的 projection 对应，用于 ActionDecoder
     add_pos_embed: True
     max_seq_len: 1024
@@ -40,7 +41,7 @@ framework:
       interleave_self_attention: true
       norm_type: "ada_norm"
       num_layers: 16
-      output_dim: 2560
+      output_dim: 1024
       positional_embeddings: null
   spatial_model:
     model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/vggt
@@ -49,7 +50,7 @@ framework:
     hidden_dim: 2048
     output_dim: 2560
   fuser:
-    type: concat #cross_attention or mlayer
+    type: cross_attention #cross_attention or mlayer
   reduce_in_full_precision: true
   use_mv_images: false
   layer_qformer:
@@ -61,10 +62,10 @@ framework:
     # model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
     model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit
     lora_path: /mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000
-    view_num: 1
+    view_num: 2
     fuser_type: mmdit
     read_from_local: false
-    num_inference_steps: 2
+    num_inference_steps: 8
 
 datasets:
   vlm_data:

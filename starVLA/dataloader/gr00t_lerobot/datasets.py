@@ -51,8 +51,8 @@ from starVLA.dataloader.gr00t_lerobot.transform import ComposedModalityTransform
 from functools import partial
 from typing import Tuple, List
 import pickle
-
-LE_ROBOT_MODALITY_FILENAME = "meta/modality_old.json"
+LE_ROBOT_MODALITY_OLD_FILENAME = "meta/modality_old.json"
+LE_ROBOT_MODALITY_FILENAME = "meta/modality.json"
 LE_ROBOT_EPISODE_FILENAME = "meta/episodes.jsonl"
 LE_ROBOT_TASKS_FILENAME = "meta/tasks.jsonl"
 LE_ROBOT_INFO_FILENAME = "meta/info.json"
@@ -281,7 +281,10 @@ class LeRobotSingleDataset(Dataset):
         """
 
         # 1. Modality metadata
+
         modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
+        if not modality_meta_path.exists():
+            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
         assert (
             modality_meta_path.exists()
         ), f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
@@ -635,6 +638,8 @@ class LeRobotSingleDataset(Dataset):
     def _get_lerobot_modality_meta(self) -> LeRobotModalityMetadata:
         """Get the metadata for the LeRobot dataset."""
         modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
+        if not modality_meta_path.exists():
+            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
         assert (
             modality_meta_path.exists()
         ), f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
@@ -984,6 +989,7 @@ class LeRobotSingleDataset(Dataset):
             padding_strategy="first_last" if state_or_action_cfg.absolute else "zero",
             # padding_strategy="zero",           # HACK for realdata
         )
+        
 
     def get_language(
         self,
@@ -1567,6 +1573,7 @@ class LeRobotMixtureDataset(Dataset):
             try:
                 dataset, trajectory_name, step = self.sample_step(index)
                 data_raw = dataset.get_step_data(trajectory_name, step)
+                
                 data = dataset.transforms(data_raw)
                 
                 # Process all video keys dynamically
@@ -1585,30 +1592,40 @@ class LeRobotMixtureDataset(Dataset):
 
                     for k in mv_keys:
                         images.append(data[k].resize((224, 224)))
-                # import ipdb
-                # ipdb.set_trace()
+                import ipdb
+                ipdb.set_trace()
                 # Get language and action data
                 language = data[dataset.modality_keys["language"][0]][0]
-                # action = []
-                # for action_key in dataset.modality_keys["action"]:
-                #     action.append(data[action_key])
-                # action = np.concatenate(action, axis=1).astype(np.float16)
+                
+                action_mask = None
+                             
+                if 'action' in data:
+                    action = data['action'].numpy().astype(np.float16)
+                    if "action_mask" in data:
+                        action_mask = data["action_mask"].numpy().astype(bool)
+                else:
+                    action = []
+                    for action_key in dataset.modality_keys["action"]:
+                        action.append(data[action_key])
+                    action = np.concatenate(action, axis=1).astype(np.float16)
                 # import ipdb
                 # ipdb.set_trace()
-                action = data['action'].numpy().astype(np.float16)
-                action_mask = None
-                
-                if "action_mask" in data:
-                    action_mask = data["action_mask"].numpy().astype(bool)
-                
-                # state = []
-                # for state_key in dataset.modality_keys["state"]:
-                #     state.append(data[state_key])
-                # state = np.concatenate(state, axis=1).astype(np.float16)
-                state = data['state'].numpy().astype(np.float16)
+                state_mask = None
+                if 'state' in data:
+                    state = data['state'].numpy().astype(np.float16)
+                    if "state_mask" in data:
+                        state_mask = data["state_mask"].numpy().astype(bool)
+                else:
+                    state = []
+                    for state_key in dataset.modality_keys["state"]:
+                        state.append(data[state_key])
+                    state = np.concatenate(state, axis=1).astype(np.float16)
+
                 ret = dict(action=action, image=images, state=state, lang=language)
                 if action_mask is not None:
                     ret.update({'action_mask': action_mask})
+                if state_mask is not None:
+                    ret.update({'state_mask': state_mask})
                 mv_feat = None
                 if 'mv_feat.l' in data:
                     mv_feat = []

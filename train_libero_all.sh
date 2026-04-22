@@ -51,8 +51,8 @@ nebulactl run mdl --queue=amap-poi_ppu810e \
                   --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \
-                  --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com \
-                  --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1 \
+                  --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com,29386048011-ksl54.cn-wulanchabu.nas.aliyuncs.com \
+                  --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1,/mnt/xlab-nas-2 \
                   --env="${ENVS}"
 
 # nebulactl run mdl --queue=amap-poi_ppu810e \
