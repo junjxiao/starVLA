@@ -44,17 +44,19 @@ args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
 # amap-poi_ppu810e
 # amap_app_common_h20_na175
 # amap_app_vtspoi_h20
-nebulactl run mdl --queue=amap-poi_ppu810e \
-                  --entry="bash examples/LIBERO/train_files/run_libero_train_dpt.sh" \
+nebulactl run mdl --queue=amap_app_vtspoi_mi308_nu8 \
+                  --entry="starVLA/training/train_starvla_dpt.py" \
                   --algo_name=pytorch280 \
                   --worker_count=1 \
-                  --user_params="" \
+                  --user_params="$args" \
                   --file.cluster_file=./cluster.json \
                   --job_name="${run_id}" \
                   --nas_file_system_id=92bcb4b594-nvt70.cn-zhangjiakou.nas.aliyuncs.com,29016449f1c-mkq60.cn-wulanchabu.nas.aliyuncs.com,9dc4e499f2-tek11.cn-zhangjiakou.nas.aliyuncs.com,29e2cf482cb-cxw73.cn-wulanchabu.nas.aliyuncs.com,29386048011-ksl54.cn-wulanchabu.nas.aliyuncs.com \
                   --nas_file_system_mount_path=/mnt/workspace,/mnt/nas-data-3,/mnt/nas-data-1,/mnt/xlab-nas-1,/mnt/xlab-nas-2 \
-                  --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_ppu2_20260119180727 \
                   --env="${ENVS}"
+
+                  # --custom_docker_image=hub.docker.alibaba-inc.com/mdl/notebook_saved:xiaojunjin.xjj_libero_plus_ppu2_20260119180727 \
+
 # --user_params="$args" \
 # nebulactl run mdl --queue=amap-poi_ppu810e \
 #                   --entry="bash examples/LIBERO/train_files/run_libero_notebook.sh" \
