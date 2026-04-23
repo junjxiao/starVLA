@@ -19,7 +19,7 @@ config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/xlab-nas-1/junjin/dataset/libero_no_noops_1.0.0_lerobot
 data_mix=libero_10_depth
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
-run_id='0423_libero10_dpt_ours'
+run_id='0423_libero10_dpt_vggt'
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -87,14 +87,14 @@ accelerate launch starVLA/training/train_starvla_dpt.py \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
-  --framework.image_edit_model.view_num 2 \
-  --framework.image_edit_model.fuser_type 'mlp_gated_tranformer' \
-  --framework.image_edit_model.read_from_local false \
+  --framework.image_edit_model null \
   --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0416_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_4gpus/checkpoints/steps_40000_pytorch_model.pt \
   #
     # 
     #  
-#   --framework.image_edit_model null \
+#   --framework.image_edit_model.view_num 2 \
+  # --framework.image_edit_model.fuser_type 'mlp_gated_tranformer' \
+  # --framework.image_edit_model.read_from_local false \
 
 
     # --trainer.reload_modules qwen_vl_interface,action_model \
