@@ -27,6 +27,13 @@ DATASET_NAMED_MIXTURES = {
         ("libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
                 # ("libero_90_no_noops_lerobot", 1.0, "libero_franka"),
     ],
+    "libero_10_depth": [
+        # ("libero_object_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
+        # ("libero_goal_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
+        # ("libero_spatial_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
+        ("libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka_depth"),
+                # ("libero_90_no_noops_lerobot", 1.0, "libero_franka"),
+    ],
     "libero_all_ration": [
         ("libero_object_no_noops_1.0.0_lerobot", 1.2, "libero_franka"),
         ("libero_goal_no_noops_1.0.0_lerobot", 1.4, "libero_franka"),

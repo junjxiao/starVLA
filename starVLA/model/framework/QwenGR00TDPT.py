@@ -24,7 +24,7 @@
 # import torch.nn.functional as F
 # import numpy as np
 # from PIL import Image
-# from torchvision import transforms as TF
+from torchvision import transforms as TF
 # import cv2
 
 
@@ -841,7 +841,7 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms as TF
 import cv2
-
+import math
 
 from starVLA.training.trainer_utils import initialize_overwatch
 from deployment.model_server.tools.image_tools import to_pil_preserve
@@ -1524,15 +1524,15 @@ class Qwen_GR00TDPT(baseframework):
         """
         super().__init__()
         self.config = config
-        self.qwen_vl_interface = get_vlm_model(config=self.config)
+        # self.qwen_vl_interface = get_vlm_model(config=self.config)
         # align dims --> we should put them to config or no?
-        self.config.framework.action_model.diffusion_model_cfg.cross_attention_dim = self.qwen_vl_interface.model.config.hidden_size
+        # self.config.framework.action_model.diffusion_model_cfg.cross_attention_dim = self.qwen_vl_interface.model.config.hidden_size
 
-        self.action_model: FlowmatchingActionHead = get_action_model(config=self.config)  # 修复后续引用
+        # self.action_model: FlowmatchingActionHead = get_action_model(config=self.config)  # 修复后续引用
 
-        self.future_action_window_size = config.framework.action_model.future_action_window_size
-        self.past_action_window_size = config.framework.action_model.past_action_window_size
-        self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
+        # self.future_action_window_size = config.framework.action_model.future_action_window_size
+        # self.past_action_window_size = config.framework.action_model.past_action_window_size
+        # self.chunk_len = self.past_action_window_size + 1 + self.future_action_window_size
         
         if getattr(self.config.framework, 'spatial_model', None) is not None:
             self.spatial_model = self.get_spatial_model(config)
@@ -1595,16 +1595,17 @@ class Qwen_GR00TDPT(baseframework):
                     )
                     self.spatial_fuser2 = SelfAttention(embed_dim=config.framework.spatial_projector.output_dim)
 
-                    
+        self.depth_head = DPTHead(dim_in=2560, output_dim=2, features=512, activation="exp", conf_activation="expp1",intermediate_layer_idx=[0,0,0,0])
+        
                 # else:
                 #     raise NotImplementedError
-        if getattr(self.config.framework, 'fuser', None) is None:
-            self.config.framework.fuser = {'type':'cross_attention'}
-        print(self.config.framework.fuser.type)
-        if self.config.framework.fuser.type == 'cross_attention':
-            self.fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
-        elif self.config.framework.fuser.type == 'mlayer':
-            self.fuser = get_layerwise_qformer(config=self.config)
+        # if getattr(self.config.framework, 'fuser', None) is None:
+        #     self.config.framework.fuser = {'type':'cross_attention'}
+        # print(self.config.framework.fuser.type)
+        # if self.config.framework.fuser.type == 'cross_attention':
+        #     self.fuser = self.get_cross_attention(d_model=config.framework.spatial_projector.output_dim,d_hidden=config.framework.spatial_projector.output_dim,kv_dim=config.framework.spatial_projector.output_dim)
+        # elif self.config.framework.fuser.type == 'mlayer':
+        #     self.fuser = get_layerwise_qformer(config=self.config)
 
     def get_cross_attention(self, d_model, d_hidden, kv_dim):
         model = CrossAttention(d_model=d_model,d_hidden=d_hidden,kv_dim=kv_dim)
@@ -1665,7 +1666,7 @@ class Qwen_GR00TDPT(baseframework):
     def forward_pass_VGGT(self, batch_images, instructions, mv_feat=None):
 
         # Step 1: QWenVL input format
-        qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
+        # qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
         with torch.autocast("cuda", dtype=torch.bfloat16):
             # qwenvl_outputs = self.qwen_vl_interface(
             #     **qwen_inputs,
@@ -1677,7 +1678,7 @@ class Qwen_GR00TDPT(baseframework):
                 # step 2: encode spatial feature
                 with torch.no_grad():
                     if self.spatial_type == "vggt":    
-                        spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to(qwen_inputs['pixel_values'].device)   
+                        spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to('cuda')   
                         aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
                         
                     elif self.spatial_type == "depthanything3":
@@ -1883,7 +1884,10 @@ class Qwen_GR00TDPT(baseframework):
         """
 
         """
-        batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
+        # import ipdb
+        # ipdb.set_trace()
+        batch_images = [example["image"][:2] for example in examples]  #  [B，[PLT]]
+        batch_depth = [example["image"][2:3] for example in examples]
         instructions = [example["lang"] for example in examples]  # [B, str]
         actions = [example["action"] for example in examples]  # label [B， len, 7]
         
@@ -1895,15 +1899,17 @@ class Qwen_GR00TDPT(baseframework):
         mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
 
         spatial_tokens, spatial_input = self.forward_pass_VGGT(batch_images, instructions, mv_feat)
-        
-        depth, dep_conf = self.depth_head(spatial_tokens, spatial_input[:,:1], patch_start_idx=0)
+        spatial_tokens = spatial_tokens.to(torch.float32)
+        # token_len = len(primary_img_tokens[0][1])
+        # primary_img_tokens = [hidden[:,:token_len//2].view(bs, token_len*2, -1) for hidden in primary_img_tokens]
+        depth, dep_conf = self.depth_head(spatial_tokens[None,:,None], spatial_input[:,:1], patch_start_idx=0)
 
         predictions = {
             "depth": depth,
             "depth_conf": dep_conf
         }
         to_tensor = TF.ToTensor()
-        gt_depth = torch.stack([to_tensor(depth_img)[:1].to(depth.device) for depth_img in batch_depth])
+        gt_depth = torch.stack([to_tensor(depth_img[0]).to('cuda') for depth_img in batch_depth])[:,:1,:,:]
         batch = {
             "depths": gt_depth,
             "point_masks": torch.ones_like(gt_depth).to(torch.bool)
@@ -1911,7 +1917,7 @@ class Qwen_GR00TDPT(baseframework):
 
         loss_dict = compute_depth_loss(predictions, batch)
 
-        depth_loss = loss_dict["loss_reg_depth"] +loss_dict["loss_conf_depth"] #+loss_dict["loss_grad_depth"] 
+        depth_loss = loss_dict["loss_reg_depth"] + loss_dict["loss_conf_depth"] #+loss_dict["loss_grad_depth"] 
         return {"action_loss": depth_loss}
 
     @torch.inference_mode()
@@ -1931,18 +1937,23 @@ class Qwen_GR00TDPT(baseframework):
         """
         batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
         instructions = [example["lang"] for example in examples]  # [B, str]
-        actions = [example["action"] for example in examples]  # label [B， len, 7]
+        # actions = [example["action"] for example in examples]  # label [B， len, 7]
         
-        state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
-        use_state = getattr(self.config.framework.action_model, 'use_state', False)
-        if not use_state:
-            state = None
+        # state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
+        # use_state = getattr(self.config.framework.action_model, 'use_state', False)
+        # if not use_state:
+        #     state = None
 
         mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
 
         spatial_tokens, spatial_input = self.forward_pass_VGGT(batch_images, instructions, mv_feat)
-        
-        depth, dep_conf = self.depth_head(spatial_tokens, spatial_input[:,:1], patch_start_idx=0)
+        # import ipdb
+        # ipdb.set_trace()
+        spatial_tokens = spatial_tokens.to(torch.float32)
+        depth, dep_conf = self.depth_head(spatial_tokens[None,:,None], spatial_input[:,:1], patch_start_idx=0)
+
+       
+        # depth, dep_conf = self.depth_head(spatial_tokens, spatial_input[:,:1], patch_start_idx=0)
         return {"depth": depth}
 
 
