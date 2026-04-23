@@ -70,7 +70,7 @@ output_dir=${run_root_dir}/${run_id}
 mkdir -p ${output_dir}
 # mv this script to the output dir
 cp $0 ${output_dir}/
-torchrun --nproc_per_node=8\
+torchrun --nproc_per_node=1\
   --master_port=29503\
   starVLA/training/train_starvla_dpt.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
