@@ -19,7 +19,7 @@ config_yaml=./examples/LIBERO/train_files/starvla_cotrain_libero.yaml
 libero_data_root=/mnt/xlab-nas-1/junjin/dataset/libero_no_noops_1.0.0_lerobot
 data_mix=libero_10_depth
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
-run_id='dpt'
+run_id='0423_libero10_dpt_ours'
 # === End of environment variable configuration ===
 ###########################################################################################
 
@@ -70,7 +70,7 @@ output_dir=${run_root_dir}/${run_id}
 mkdir -p ${output_dir}
 # mv this script to the output dir
 cp $0 ${output_dir}/
-CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
+torchrun --nproc_per_node=8\
   --master_port=29503\
   starVLA/training/train_starvla_dpt.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
