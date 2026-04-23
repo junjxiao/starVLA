@@ -51,6 +51,7 @@ from starVLA.dataloader.gr00t_lerobot.transform import ComposedModalityTransform
 from functools import partial
 from typing import Tuple, List
 import pickle
+
 LE_ROBOT_MODALITY_OLD_FILENAME = "meta/modality_old.json"
 LE_ROBOT_MODALITY_FILENAME = "meta/modality.json"
 LE_ROBOT_EPISODE_FILENAME = "meta/episodes.jsonl"
@@ -282,9 +283,9 @@ class LeRobotSingleDataset(Dataset):
 
         # 1. Modality metadata
 
-        modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
+        modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
         if not modality_meta_path.exists():
-            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
+            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
         assert (
             modality_meta_path.exists()
         ), f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
@@ -637,9 +638,9 @@ class LeRobotSingleDataset(Dataset):
 
     def _get_lerobot_modality_meta(self) -> LeRobotModalityMetadata:
         """Get the metadata for the LeRobot dataset."""
-        modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
+        modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
         if not modality_meta_path.exists():
-            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_OLD_FILENAME
+            modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
         assert (
             modality_meta_path.exists()
         ), f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
