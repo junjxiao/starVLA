@@ -2,7 +2,7 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0423_robotwin_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_16gpus_reload_vlm_action
+run_id=0424_robotwin_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_16gpus_reload_vlm_action
 args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
@@ -22,10 +22,11 @@ args="--config_yaml ./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs
       --framework.fuser.type cross_attention \
       --framework.image_edit_model.view_num 2 \
       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
-      --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
-      --trainer.reload_modules qwen_vl_interface,action_model \
+      --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0423_robotwin_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_16gpus_reload_vlm_action/checkpoints/steps_10000_pytorch_model.pt \
       --framework.image_edit_model.num_inference_steps 2 \
       "
+
+            # --trainer.reload_modules qwen_vl_interface,action_model \
       # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
 
       # 
