@@ -202,51 +202,53 @@ def extract_middle_frame(video_path, output_path):
 
 def main():
     # 定义输入视频路径
-    video_mid = "/mnt/nas-data-3/yangyandan/libero/libero_spatial_no_noops_1.0.0_lerobot/videos/chunk-000/observation.images.image/episode_000006.mp4"
-    # video_left = "/mnt/xlab-nas-1/junjin/dataset/libero_mv_video/libero_spatial/left/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo5.mp4"
-    # video_right = "/mnt/xlab-nas-1/junjin/dataset/libero_mv_video/libero_spatial/right/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo5.mp4"
+    video_mid = "/mnt/xlab-nas-1/junjin/dataset/libero_mv_video/libero_spatial/mid/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo13.mp4"
+    video_left = "/mnt/xlab-nas-1/junjin/dataset/libero_mv_video/libero_spatial/left/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo13.mp4"
+    video_right = "/mnt/xlab-nas-1/junjin/dataset/libero_mv_video/libero_spatial/right/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo13.mp4"
 
     # 定义输出图片路径 (保存在当前目录下，或者你可以指定其他目录)
-    output_mid = "./plots/my_figs/exp/gate/input.jpg"
-    # output_left = "./assets/my_figs/mv_imgs/left_frame.jpg"
-    # output_right = "./assets/my_figs/mv_imgs/right_frame.jpg"
+    output_mid = "./plots/my_figs/exp/depth/vis3/input.jpg"
+    output_left = "./plots/my_figs/exp/depth/vis3/left_frame.jpg"
+    output_right = "./plots/my_figs/exp/depth/vis3/right_frame.jpg"
 
     print("开始处理 mid 视频...")
     extract_middle_frame(video_mid, output_mid)
 
-    # print("开始处理 left 视频...")
-    # extract_middle_frame(video_left, output_left)
+    print("开始处理 left 视频...")
+    extract_middle_frame(video_left, output_left)
 
-    # print("开始处理 right 视频...")
-    # extract_middle_frame(video_right, output_right)
+    print("开始处理 right 视频...")
+    extract_middle_frame(video_right, output_right)
 
     print("处理完成！")
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
 
 
-# import h5py
-# import numpy as np
-# import cv2
+import h5py
+import numpy as np
+import cv2
 
-# # 打开文件（只读模式）
-# with h5py.File('/mnt/xlab-nas-1/junjin/dataset/regenerated_libero/libero_10_no_noops/KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it_demo.hdf5', 'r') as f:
-#     import ipdb
-#     ipdb.set_trace()
-#     main_view = f['data']['demo_5']['obs']['agentview_rgb'][10]
-#     wrist_view = f['data']['demo_5']['obs']['eye_in_hand_rgb'][10]
-#     depth_val = f['data']['demo_5']['obs']['agentview_depth'][10][:,:,0]
-#     d_min = depth_val.min()
-#     d_max = depth_val.max()
+# 打开文件（只读模式）
+
+with h5py.File('/mnt/xlab-nas-1/junjin/dataset/regenerated_libero/libero_spatial_no_noops/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5', 'r') as f:
+    # import ipdb
+    # ipdb.set_trace()
+    l = len(f['data']['demo_13']['obs']['agentview_rgb'])
+    # main_view = f['data']['demo_2']['obs']['agentview_rgb'][10]
+    # wrist_view = f['data']['demo_2']['obs']['eye_in_hand_rgb'][10]
+    depth_val = f['data']['demo_13']['obs']['agentview_depth'][l//2][:,:,0]
+    d_min = depth_val.min()
+    d_max = depth_val.max()
     
-#     if d_max - d_min > 1e-8:
-#         depth_vis = (depth_val - d_min) / (d_max - d_min) * 255.0
-#     else:
-#         depth_vis = np.zeros_like(depth_val)
+    if d_max - d_min > 1e-8:
+        depth_vis = (depth_val - d_min) / (d_max - d_min) * 255.0
+    else:
+        depth_vis = np.zeros_like(depth_val)
     
-#     depth_vis = depth_vis.astype(np.uint8)
-#     depth_vis_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_INFERNO)
-#     cv2.imwrite('./plots/my_figs/method/depth.png', depth_vis_colored)
-#     cv2.imwrite('./plots/my_figs/method/input.png', main_view[:,:,[2,1,0]])
-#     cv2.imwrite('./plots/my_figs/method/wrist_input.png', wrist_view[:,:,[2,1,0]])
+    depth_vis = depth_vis.astype(np.uint8)
+    depth_vis_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_INFERNO)
+    cv2.imwrite('./plots/my_figs/exp/depth/vis3/gt.png', depth_vis_colored)
+    # cv2.imwrite('./plots/my_figs/method/input.png', main_view[:,:,[2,1,0]])
+    # cv2.imwrite('./plots/my_figs/method/wrist_input.png', wrist_view[:,:,[2,1,0]])

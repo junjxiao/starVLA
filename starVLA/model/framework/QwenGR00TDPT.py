@@ -1143,52 +1143,52 @@ def preprocess_images(image_list, target_size, mode='crop'): #  [B，[PLT]]
     # First process all images and collect their shapes
     for imgs in image_list:
         epi_images = []
-        img = imgs[0]
-        # for img in imgs:
-        width, height = img.size
+        # img = imgs[0]
+        for img in imgs:
+            width, height = img.size
 
-        if mode == "pad":
-            # Make the largest dimension 518px while maintaining aspect ratio
-            if width >= height:
+            if mode == "pad":
+                # Make the largest dimension 518px while maintaining aspect ratio
+                if width >= height:
+                    new_width = target_size
+                    new_height = round(height * (new_width / width) / 14) * 14  # Make divisible by 14
+                else:
+                    new_height = target_size
+                    new_width = round(width * (new_height / height) / 14) * 14  # Make divisible by 14
+            else:  # mode == "crop"
+                # Original behavior: set width to 518px
                 new_width = target_size
-                new_height = round(height * (new_width / width) / 14) * 14  # Make divisible by 14
-            else:
-                new_height = target_size
-                new_width = round(width * (new_height / height) / 14) * 14  # Make divisible by 14
-        else:  # mode == "crop"
-            # Original behavior: set width to 518px
-            new_width = target_size
-            # Calculate height maintaining aspect ratio, divisible by 14
-            new_height = round(height * (new_width / width) / 14) * 14
+                # Calculate height maintaining aspect ratio, divisible by 14
+                new_height = round(height * (new_width / width) / 14) * 14
 
-        # Resize with new dimensions (width, height)
-        # img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
-        img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
-        img = to_tensor(img)  # Convert to tensor (0, 1)
+            # Resize with new dimensions (width, height)
+            # img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            img = to_tensor(img)  # Convert to tensor (0, 1)
 
-        # Center crop height if it's larger than 518 (only in crop mode)
-        if mode == "crop" and new_height > target_size:
-            start_y = (new_height - target_size) // 2
-            img = img[:, start_y : start_y + target_size, :]
+            # Center crop height if it's larger than 518 (only in crop mode)
+            if mode == "crop" and new_height > target_size:
+                start_y = (new_height - target_size) // 2
+                img = img[:, start_y : start_y + target_size, :]
 
-        # For pad mode, pad to make a square of target_size x target_size
-        if mode == "pad":
-            h_padding = target_size - img.shape[1]
-            w_padding = target_size - img.shape[2]
+            # For pad mode, pad to make a square of target_size x target_size
+            if mode == "pad":
+                h_padding = target_size - img.shape[1]
+                w_padding = target_size - img.shape[2]
 
-            if h_padding > 0 or w_padding > 0:
-                pad_top = h_padding // 2
-                pad_bottom = h_padding - pad_top
-                pad_left = w_padding // 2
-                pad_right = w_padding - pad_left
+                if h_padding > 0 or w_padding > 0:
+                    pad_top = h_padding // 2
+                    pad_bottom = h_padding - pad_top
+                    pad_left = w_padding // 2
+                    pad_right = w_padding - pad_left
 
-                # Pad with white (value=1.0)
-                img = torch.nn.functional.pad(
-                    img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
-                )
+                    # Pad with white (value=1.0)
+                    img = torch.nn.functional.pad(
+                        img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+                    )
 
-        shapes.add((img.shape[1], img.shape[2]))
-        epi_images.append(img)
+            shapes.add((img.shape[1], img.shape[2]))
+            epi_images.append(img)
         batch_images.append(torch.stack(epi_images))
 
     # Check if we have different shapes
@@ -1630,251 +1630,48 @@ class Qwen_GR00TDPT(baseframework):
         prompts = ['Rotate the camera view to the left', 'Rotate the camera view to the right']
         with torch.no_grad():
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                if view_num == 1:
+                outputs = []
+                for i in range(view_num):
                     inputs = {
                         "images": images,
-                        "prompts": random.choices(prompts, k=len(images)),
+                        "prompts": [prompts[i]] * len(images),
                         "generator": torch.Generator("cuda").manual_seed(43),
-                        "num_inference_steps": 4,
+                        "num_inference_steps": 50,
                         "guidance_scale": 1.0,
-                        "output_type": "latent",
+                        "output_type": "pil",
                         "device": 'cuda',
                         'height': 256,
                         'width': 256,
                     }
-                    output = self.image_edit_model(**inputs)
-                else:
-                    outputs = []
-                    for i in range(view_num):
-                        inputs = {
-                            "images": images,
-                            "prompts": [prompts[i]] * len(images),
-                            "generator": torch.Generator("cuda").manual_seed(43),
-                            "num_inference_steps": self.config.framework.image_edit_model.num_inference_steps,
-                            "guidance_scale": 1.0,
-                            "output_type": "latent",
-                            "device": 'cuda',
-                            'height': 256,
-                            'width': 256,
-                        }
-                        output = self.image_edit_model(**inputs)
-                        outputs.append(output)
-                    output = torch.cat(outputs, dim=1)
+                    output = self.image_edit_model(**inputs)[1]
+                    outputs.append(output)
+                # output = torch.cat(outputs, dim=1)
+                output = list(map(list, zip(*outputs)))
 
         return output
         
     def forward_pass_VGGT(self, batch_images, instructions, mv_feat=None):
-
-        # Step 1: QWenVL input format
-        # qwen_inputs = self.qwen_vl_interface.build_qwenvl_inputs(images=batch_images, instructions=instructions)
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            # qwenvl_outputs = self.qwen_vl_interface(
-            #     **qwen_inputs,
-            #     output_attentions=False,
-            #     output_hidden_states=True,
-            #     return_dict=True,
-            # )    
+  
             if getattr(self, 'spatial_model', None) is not None:
-                # step 2: encode spatial feature
                 with torch.no_grad():
+                    if getattr(self.config.framework, 'image_edit_model', None) is not None:
+                        if mv_feat is not None:
+                            extra_latents = torch.tensor(np.array(mv_feat), device=qwen_inputs['pixel_values'].device, dtype=qwen_inputs['pixel_values'].dtype)
+                        else:
+                            primary_image = [image[0] for image in batch_images]
+                            extra_latents = self.forward_pass_image_edit_model(primary_image)
+                            for i in range(len(batch_images)):
+                                for j in range(len(extra_latents[i])):
+                                    extra_latents[i][j] = extra_latents[i][j].resize((224,224))
+                                batch_images[i] += extra_latents[i]
+
                     if self.spatial_type == "vggt":    
                         spatial_input = preprocess_images(batch_images, batch_images[0][0].size[0]).to('cuda')   
                         aggregated_tokens_list, ps_idx = self.spatial_model.aggregator(spatial_input)
-                        
-                    elif self.spatial_type == "depthanything3":
-                        denorm_image = (denorm_image - self._resnet_mean.to(denorm_image.device)) / self._resnet_std.to(denorm_image.device)
-                        feats, aux_feats = self.spatial_model.model.da3.backbone(denorm_image.unsqueeze(1).to(torch.bfloat16),cam_token=None, export_feat_layers=[-1], ref_view_strategy="saddle_balanced")
-                        Bs, S, N, C = feats[0][0].shape
-                        spatial_tokens = feats[-1][0].reshape(Bs*S, N, C)
-                    else:
-                        raise NotImplementedError
-            # import ipdb
-            # ipdb.set_trace()
-            extra_latents = None
-            if getattr(self.config.framework, 'image_edit_model', None) is not None:
-                if mv_feat is not None:
-                    extra_latents = torch.tensor(np.array(mv_feat), device=qwen_inputs['pixel_values'].device, dtype=qwen_inputs['pixel_values'].dtype)
-                else:
-                    primary_image = [image[0] for image in batch_images]
-                    extra_latents = self.forward_pass_image_edit_model(primary_image)
-            
-
-        # step 3: fuse spatial tokens and qwen tokens
-        with torch.autocast("cuda", dtype=torch.float32):
-            if self.config.framework.fuser.type == 'cross_attention':
-                # last_hidden_state: [B, seq_len, H]
-                # last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-                spatial_tokens = None
-                if getattr(self, 'spatial_model', None) is not None:
-                    if self.spatial_type == "vggt":
-                        spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-                    else:
-                        raise NotImplementedError
-
-                    spatial_tokens = self.spatial_projector(spatial_tokens)
-
-                if extra_latents is not None:
-                    extra_latents = self.image_edit_projector(extra_latents)
-                    if spatial_tokens is not None:
-                        extra_latents = extra_latents.to(spatial_tokens.dtype)
-                        if getattr(self, 'spatial_fuser', None) is not None:
-                            if self.config.framework.image_edit_model.fuser_type == 'mmdit':
-                                spatial_tokens, extra_latents = self.spatial_fuser(spatial_tokens, extra_latents)
-                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'cross_attention':
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                B, L, D = extra_latents.shape
-
-                                # 确保长度可以被整除
-                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
-
-                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
-                                # 每个 chunk 的形状为 (B, L // view_num, D)
-                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
-
-                                fusion_results = []
-                                for i in range(view_num):
-                                    # 对每一份执行融合操作
-                                    # 注意：如果 spatial_tokens 是共享的，直接传入；如果是多视角的，可能也需要拆分
-                                    ri = self.spatial_fuser(spatial_tokens, latent_chunks[i])
-                                    fusion_results.append(ri)
-
-                                # 将结果拼接回来
-                                extra_latents = torch.cat(fusion_results, dim=1) 
-                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'inv_cross_attention':
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                B, L, D = extra_latents.shape
-
-                                # 确保长度可以被整除
-                                assert L % view_num == 0, f"extra_latents length {L} is not divisible by view_num {view_num}"
-
-                                # 将 extra_latents 沿 L 维度切分成 view_num 个 chunk
-                                # 每个 chunk 的形状为 (B, L // view_num, D)
-                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
-
-                                fusion_results = []
-                                for i in range(view_num):
-                                    # 对每一份执行融合操作
-                                    ri = self.spatial_fuser(latent_chunks[i], spatial_tokens)
-                                    fusion_results.append(ri)
-
-                                # 将结果拼接回来
-                                extra_latents = torch.cat(fusion_results, dim=1) 
-                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'concat':
-                                spatial_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'self_attention':
-                                extra_latents = torch.cat([spatial_tokens, extra_latents], dim=1)
-                                spatial_tokens = self.spatial_fuser(extra_latents)
-                            elif self.config.framework.image_edit_model.fuser_type == "gated_fusion":
-                                B, L, D = extra_latents.shape
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                latent_chunks = torch.chunk(extra_latents, chunks=view_num, dim=1)
-                                # fuse spatial feature to multi-view feature
-                                fusion_results = [spatial_tokens]
-                                spatial_aware_feat = []
-                                for i in range(view_num):
-                                    # 对每一份执行融合操作
-                                    ri = self.mv2geo(latent_chunks[i], spatial_tokens)
-                                    spatial_aware_feat.append(ri)
-                                spatial_aware_feat = torch.cat(spatial_aware_feat, dim=1)
-                                refined_spatial_tokens = self.geo2mv(spatial_tokens, spatial_aware_feat)
-                                gate = self.spatial_fuser(torch.cat([spatial_tokens,refined_spatial_tokens], dim=-1))
-                                spatial_tokens = gate * spatial_tokens + (1 - gate) * refined_spatial_tokens
-                                
-                                # 将结果拼接回来
-                                spatial_tokens = torch.cat([spatial_tokens, spatial_aware_feat], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'mlp_fusion':
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                assert view_num == 2, f"view num should be 2"
-                                spatial_token_num = spatial_tokens.shape[1]
-                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                                fused_tokens = self.spatial_fuser(fused_tokens)
-                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
-                                fused_extra_latents = torch.chunk(fused_tokens[:,spatial_token_num:,:], chunks=view_num, dim=1)
-                                gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
-                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
-                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
-                            elif self.config.framework.image_edit_model.fuser_type == 'mlp_gated_tranformer':
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                assert view_num == 2, f"view num should be 2"
-                                spatial_token_num = spatial_tokens.shape[1]
-                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                                fused_tokens = self.spatial_fuser(fused_tokens)
-                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
-                                fused_extra_latents = torch.chunk(fused_tokens[:,spatial_token_num:,:], chunks=view_num, dim=1)
-                                gate = self.view_selector(torch.cat(fused_extra_latents, dim=-1))
-                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
-                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
-                                spatial_tokens = self.spatial_fuser2(spatial_tokens)
-                                spatial_tokens = spatial_tokens[:,:spatial_token_num,:]
-                            elif self.config.framework.image_edit_model.fuser_type == 'residual_fusion':
-                                view_num = getattr(self.config.framework.image_edit_model, 'view_num', 1)
-                                assert view_num == 2, f"view num should be 2"
-                                spatial_token_num = spatial_tokens.shape[1]
-                                fused_tokens = torch.cat([spatial_tokens, extra_latents], dim=1)
-                                fused_tokens = self.spatial_fuser(fused_tokens)
-                                fused_spatial_tokens = fused_tokens[:,:spatial_token_num,:]
-                                fused_extra_latents = fused_tokens[:,spatial_token_num:,:]
-                                residual = fused_extra_latents - extra_latents
-                                residual = torch.chunk(residual, chunks=view_num, dim=1) # 
-                                fused_extra_latents = torch.chunk(fused_extra_latents, chunks=view_num, dim=1)
-                                gate = self.view_selector(torch.cat(residual, dim=-1))
-                                fused_view = gate * fused_extra_latents[0] + (1 - gate) * fused_extra_latents[1]
-                                spatial_tokens = torch.cat([fused_spatial_tokens, fused_view], dim=1)
-
-                    else:
-                        spatial_tokens = extra_latents
-                # last_hidden = self.fuser(last_hidden, spatial_tokens)
-            elif self.config.framework.fuser.type == 'concat':
-                # last_hidden_state: [B, seq_len, H]
-                last_hidden = qwenvl_outputs.hidden_states[-1]   # [B, L, H]
-                spatial_tokens = None
-                if getattr(self, 'spatial_model', None) is not None:
-                    if self.spatial_type == "vggt":
-                        spatial_tokens = aggregated_tokens_list[-1][:,0,ps_idx:,:]
-                    else:
-                        raise NotImplementedError
-
-                    spatial_tokens = self.spatial_projector(spatial_tokens)
-
-                if extra_latents is not None:
-                    extra_latents = self.image_edit_projector(extra_latents)
-                    if spatial_tokens is not None:
-                        spatial_tokens = torch.cat([spatial_tokens, extra_latents.to(spatial_tokens.dtype)], dim=1)
-                    else:
-                        spatial_tokens = extra_latents
-                last_hidden = torch.cat([last_hidden, spatial_tokens], dim=1)
-                if extra_latents is not None:
-                    last_hidden = torch.cat([last_hidden, extra_latents.to(last_hidden.dtype)], dim=1)
-            elif self.config.framework.fuser.type == 'mlayer':
-                num_layers = self.config.framework.layer_qformer.num_layers
-                qwenvl_interval = len(qwenvl_outputs.hidden_states) // num_layers  
-                qwenvl_index = [i * qwenvl_interval for i in range(1, num_layers)] + [-1]
-                qwenvl_hidden_states = torch.stack([qwenvl_outputs.hidden_states[i] for i in qwenvl_index])
-                spatial_interval = len(aggregated_tokens_list) // num_layers
-                spatial_index = [spatial_interval * i for i in range(1, num_layers)] + [-1]
-                spatial_hidden_states = torch.stack([aggregated_tokens_list[i][:,0,ps_idx:,:] for i in spatial_index])
-                spatial_hidden_states = self.spatial_projector(spatial_hidden_states)
-
-                cat_conditions = []
-                for layer_index in range(num_layers):
-                    if extra_latents is not None:
-                        layer_features = torch.cat(
-                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index], extra_latents.to(spatial_hidden_states[layer_index].dtype)], dim=1
-                        )
-                    else:
-                        layer_features = torch.cat(
-                            [qwenvl_hidden_states[layer_index], spatial_hidden_states[layer_index]], dim=1
-                        )
-                    cat_conditions.append(layer_features)
-
-                last_hidden = self.fuser(cat_conditions)[0]
-            else:
-                raise NotImplementedError
-           
-        return spatial_tokens, spatial_input
+                        depth_map, depth_conf = self.spatial_model.depth_head(aggregated_tokens_list, spatial_input, ps_idx)
+                          
+        return depth_map
 
     def forward(
         self,
@@ -1946,15 +1743,10 @@ class Qwen_GR00TDPT(baseframework):
 
         mv_feat = [example["mv_feat"] for example in examples] if "mv_feat" in examples[0] else None
 
-        spatial_tokens, spatial_input = self.forward_pass_VGGT(batch_images, instructions, mv_feat)
-        # import ipdb
-        # ipdb.set_trace()
-        spatial_tokens = spatial_tokens.to(torch.float32)
-        depth, dep_conf = self.depth_head(spatial_tokens[None,:,None], spatial_input[:,:1], patch_start_idx=0)
-
-       
+        depth_map = self.forward_pass_VGGT(batch_images, instructions, mv_feat)
+        
         # depth, dep_conf = self.depth_head(spatial_tokens, spatial_input[:,:1], patch_start_idx=0)
-        return {"depth": depth}
+        return {"depth": depth_map[:,:1]}
 
 
 

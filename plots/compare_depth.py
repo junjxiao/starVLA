@@ -6,6 +6,7 @@ import torch
 import torchvision.io as tv_io
 import torchvision.transforms.functional as TF
 from PIL import Image
+import cv2
 import tqdm
 import matplotlib.cm as cm
 from typing import List, Dict
@@ -22,23 +23,20 @@ if str(STARVLA_ROOT) not in sys.path:
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # 模型Checkpoint路径
-policy_ckpt_path = "/mnt/workspace/junjin/code/starVLA/checkpoints/dpt_vggt/checkpoints/steps_5000_pytorch_model.pt"
-
+policy_ckpt_path = "/mnt/workspace/junjin/code/starVLA/checkpoints/0423_libero10_dpt_ours/checkpoints/steps_4000_pytorch_model.pt"
+# import ipdb
+# ipdb.set_trace()
 print(f"Loading Model from {policy_ckpt_path} ...")
-try:
-    from starVLA.model.framework.base_framework import baseframework
-    
-    # 按照要求的方法加载
-    vla = baseframework.from_pretrained(policy_ckpt_path)
-    
-    # vla = vla.to(torch.bfloat16)
-    vla = vla.to("cuda").eval()
-    print("✅ Model Loaded Successfully.")
-except Exception as e:
-    print(f"❌ Error loading model: {e}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+
+from starVLA.model.framework.base_framework import baseframework
+
+# 按照要求的方法加载
+vla = baseframework.from_pretrained(policy_ckpt_path)
+
+# vla = vla.to(torch.bfloat16)
+vla = vla.to("cuda").eval()
+print("✅ Model Loaded Successfully.")
+
 
 # ==========================================
 # 2. 辅助函数
@@ -117,16 +115,13 @@ def save_colored_depth(depth_np: np.ndarray, save_path: str, size: tuple = (224,
         depth_norm = (depth_resized - d_min) / (d_max - d_min)
     else:
         depth_norm = np.zeros_like(depth_resized)
-        
-    # 3. Apply Colormap (Plasma)
-    colored_depth = cm.plasma(depth_norm) # Returns (H, W, 4) float [0,1]
-    
-    # 4. Convert to RGB uint8
-    rgb_colored = (colored_depth[:, :, :3] * 255).astype(np.uint8)
-    
+    rgb_colored = cv2.applyColorMap(np.uint8(255 * depth_norm), cv2.COLORMAP_INFERNO)
+    # rgb_colored = cv2.applyColorMap(np.uint8(255 * depth_resized), cv2.COLORMAP_JET)
+    # rgb_colored = cv2.cvtColor(rgb_colored, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(save_path, rgb_colored)
     # 5. Save
-    img = Image.fromarray(rgb_colored, mode='RGB')
-    img.save(save_path)
+    # img = Image.fromarray(rgb_colored, mode='RGB')
+    # img.save(save_path)
 
 def save_rgb_image_from_pil(pil_img: Image.Image, save_path: str, size: tuple = (224, 224)):
     """
@@ -142,7 +137,7 @@ def save_rgb_image_from_pil(pil_img: Image.Image, save_path: str, size: tuple = 
 def main():
     # --- 配置路径 ---
     data_root = "/mnt/xlab-nas-1/junjin/dataset/libero_no_noops_1.0.0_lerobot/libero_10_no_noops_1.0.0_lerobot/videos/chunk-000"
-    output_dir = "./plots/my_figs/exp/depth/vggt"
+    output_dir = "./plots/my_figs/exp/depth/ours"
     
     # 创建子目录
     dir_input = os.path.join(output_dir, "input_rgb")
@@ -206,7 +201,8 @@ def main():
 
     metrics_list = []
     target_size = (224, 224)
-    
+    # import ipdb
+    # ipdb.set_trace()
     with torch.no_grad():
         for i in tqdm.tqdm(range(min_frames), desc="Evaluating Frames"):
             
@@ -244,13 +240,12 @@ def main():
             
             # 5. 构建 Example (传入的是 224x224 的 PIL)
             example = {
-                "image": [pil_rgb, pil_wrist], 
+                "image": [pil_rgb],  #, pil_wrist
                 "lang": "pick up the object", 
-                "mv_feat": None 
             }
             
             # --- B. 模型推理 ---
-
+            
             output = vla.predict_action(examples=[example])
             pred_depth_tensor = output["depth"][0]
             

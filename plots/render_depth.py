@@ -164,11 +164,11 @@ def process_images(args):
 # -----------------------------
 def main():
     parser = argparse.ArgumentParser(description="Single GPU Depth Prediction using VGGT")
-    parser.add_argument("--input_path", type=str, required=True,
+    parser.add_argument("--input_path", type=str, default="./plots/my_figs/exp/depth/vis3/input.jpg",
                         help="Path to a single image OR a directory containing images.")
-    parser.add_argument("--output_dir", type=str, default="./depth_output",
+    parser.add_argument("--output_dir", type=str, default="./plots/my_figs/exp/depth/vis3/vggt",
                         help="Directory to save output depth maps.")
-    parser.add_argument("--model_config", type=str, default="facebook/vggt-small", # 默认改为一个常见的 pretrained id 或 local path
+    parser.add_argument("--model_config", type=str, default="/mnt/xlab-nas-1/junjin/pretrained_models/vggt", # 默认改为一个常见的 pretrained id 或 local path
                         help="VGGT model configuration or pretrained path.")
     parser.add_argument("--batch_size", type=int, default=10,
                         help="Number of images to process in one forward pass to save memory.")
