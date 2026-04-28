@@ -2,12 +2,12 @@
 # ,DEEPSPEED_CONFIG_FILE=/mnt/workspace/junjin/code/starVLA/starVLA/config/deepseeds/zero2.json
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0423_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_4gpus_reload_vlm_action
+run_id=0428_liberoall_Qwen3vlGR00TAML_vggt_longcat_view2_cross_mlp_gated_tranformer_ck10_JAT2048_14k_bs16_4gpus_reload_vlm_action_ration
 args="--config_yaml ./examples/LIBERO/train_files/starvla_cotrain_libero.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/xlab-nas-2/vla_dataset/benchmark/libero \
-      --datasets.vla_data.data_mix libero_all \
+      --datasets.vla_data.data_mix libero_all_ration \
       --datasets.vla_data.per_device_batch_size 16 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
