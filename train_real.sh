@@ -5,7 +5,7 @@ ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=off
 run_id=0429_real_all_Qwen3vlGR00TSpatialAML_vggt_cross_bs16
 args="--config_yaml ./examples/Real_data/train_files/starvla_cotrain_real.yaml \
       --framework.name QwenGR00TSpatialAML \
-      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct \
+      --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21 \
       --datasets.vla_data.data_mix real_all \
       --datasets.vla_data.per_device_batch_size 16 \
