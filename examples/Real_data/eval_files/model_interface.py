@@ -168,7 +168,7 @@ class ModelClient:
     def prepare_observation(self, obs):
         """Prepare observation for policy input."""
         # Get preprocessed images
-        img = obs['main_camera_rgb']
+        img = obs['left_camera_rgb']
         # wrist_img = obs['wrist_camera_rgb']
         if 'lang' in obs:
             task_description = obs['lang']
@@ -263,8 +263,42 @@ class ModelClient:
 
 
     def _resize_image(self, image: np.ndarray) -> np.ndarray:
-        image = cv.resize(image, tuple(self.image_size), interpolation=cv.INTER_AREA)
-        return image
+        """
+        1. Center Crop: 根据原始图像的最短边进行正方形裁剪。
+        2. Resize:将裁剪后的正方形图像缩放到目标尺寸。
+        
+        Args:
+            image: Input image (H, W, C) uint8.
+            target_size: Target size (Width, Height). e.g., (256, 256).
+            
+        Returns:
+            Resized image (Target_H, Target_W, C) uint8.
+        """
+        h, w = image.shape[:2]
+        target_w, target_h = tuple(self.image_size)
+        
+        # 1. Center Crop (Square Crop based on shortest side)
+        if h < w:
+            # 高度较短，以高度为基准裁剪宽度
+            start_x = (w - h) // 2
+            end_x = start_x + h
+            cropped = image[:, start_x:end_x, :]
+        else:
+            # 宽度较短，以宽度为基准裁剪高度
+            start_y = (h - w) // 2
+            end_y = start_y + w
+            cropped = image[start_y:end_y, :, :]
+            
+        # 2. Resize to target size
+        # cv2.resize expects dsize=(width, height)
+        resized = cv2.resize(cropped, (target_w, target_h), interpolation=cv2.INTER_AREA)
+        
+        # Ensure 3 channels if needed (e.g., if input was grayscale, though unlikely here)
+        if len(resized.shape) == 2:
+            resized = np.stack([resized] * 3, axis=-1)
+            
+        return resized.astype(np.uint8)
+
 
     def visualize_epoch(
         self, predicted_raw_actions: Sequence[np.ndarray], images: Sequence[np.ndarray], save_path: str
