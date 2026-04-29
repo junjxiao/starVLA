@@ -1283,7 +1283,7 @@ class AgilexDataConfig:
 class RealDataConfig:
     video_keys = [
         "video.primary_image",
-        "video.wrist_image",
+        # "video.wrist_image",
     ]
     
     state_keys = [
@@ -1310,7 +1310,7 @@ class RealDataConfig:
     language_keys = ["annotation.human.action.task_description"]
 
     observation_indices = [0]
-    action_indices = list(range(8))
+    action_indices = list(range(10))
 
 
     def modality_config(self):

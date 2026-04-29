@@ -281,4 +281,10 @@ DATASET_NAMED_MIXTURES = {
     "put_toy_in_cabinet": [
         ("put_toy_in_cabinet", 1.0, "real"),
     ],
+    "real_all": [
+        ("insert_cube", 1.0, "real"),
+        ("place_cup", 1.0, "real"),
+        ("place_cylinder", 1.0, "real"),
+        ("stack_block", 1.0, "real"),
+    ],
 }

@@ -7,16 +7,62 @@ from pathlib import Path
 from tqdm import tqdm
 from natsort import natsorted
 import glob
+import cv2
+import numpy as np
 
+def center_crop_and_resize(image: np.ndarray, target_size: tuple) -> np.ndarray:
+    """
+    1. Center Crop: 根据原始图像的最短边进行正方形裁剪。
+    2. Resize:将裁剪后的正方形图像缩放到目标尺寸。
+    
+    Args:
+        image: Input image (H, W, C) uint8.
+        target_size: Target size (Width, Height). e.g., (256, 256).
+        
+    Returns:
+        Resized image (Target_H, Target_W, C) uint8.
+    """
+    h, w = image.shape[:2]
+    target_w, target_h = target_size
+    
+    # 1. Center Crop (Square Crop based on shortest side)
+    if h < w:
+        # 高度较短，以高度为基准裁剪宽度
+        start_x = (w - h) // 2
+        end_x = start_x + h
+        cropped = image[:, start_x:end_x, :]
+    else:
+        # 宽度较短，以宽度为基准裁剪高度
+        start_y = (h - w) // 2
+        end_y = start_y + w
+        cropped = image[start_y:end_y, :, :]
+        
+    # 2. Resize to target size
+    # cv2.resize expects dsize=(width, height)
+    resized = cv2.resize(cropped, (target_w, target_h), interpolation=cv2.INTER_AREA)
+    
+    # Ensure 3 channels if needed (e.g., if input was grayscale, though unlikely here)
+    if len(resized.shape) == 2:
+        resized = np.stack([resized] * 3, axis=-1)
+        
+    return resized.astype(np.uint8)
+
+TASK_INSTRUCTIONS = {
+    "place_cup": "Place the green cup on the red block.",
+    "insert_cube": "Insert the pink cube into the red cup.",
+    "place_cylinder": "Place the cylinder on the block.",
+    "stack_block": "Stack the blue block on the red block."
+}
+task = "place_cup"
 # === 配置 ===
-INPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_datasets/clean_the_table")
-OUTPUT_ROOT = Path("/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21/clean_the_table")
+INPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/vla_dataset/real_vladata/{task}/data")
+OUTPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21/{task}")
 
 # === 常量 ===
 DEFAULT_CHUNK_SIZE = 1000
 VIDEO_HEIGHT, VIDEO_WIDTH = 256, 256
 FPS = 20
-TASK_NAME = "Pick up the three stuffed animals on the table one by one and place them into the bin."  # Open the drawer, place the toy inside, and then close the drawer.    Pick up the three stuffed animals on the table one by one and place them into the bin.
+TASK_NAME = TASK_INSTRUCTIONS[task]  # Open the drawer, place the toy inside, and then close the drawer.    Pick up the three stuffed animals on the table one by one and place them into the bin.
 
 
 def compute_video_stats(video_frames: list) -> dict:
@@ -59,9 +105,9 @@ def main():
     data_dir = OUTPUT_ROOT / "data"
     meta_dir = OUTPUT_ROOT / "meta"
     videos_main_dir = OUTPUT_ROOT / "videos" #/ "observation.images.image"
-    videos_wrist_dir = OUTPUT_ROOT / "videos" #/ "observation.images.wrist_image"
+    # videos_wrist_dir = OUTPUT_ROOT / "videos" #/ "observation.images.wrist_image"
 
-    for d in [data_dir, meta_dir, videos_main_dir, videos_wrist_dir]:
+    for d in [data_dir, meta_dir, videos_main_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
     # 获取轨迹
@@ -72,7 +118,7 @@ def main():
     global_actions = []
     global_states = []
     all_main_videos = []
-    all_wrist_videos = []
+    # all_wrist_videos = []
 
     for ep_idx, traj_dir in enumerate(tqdm(traj_dirs, desc="Processing trajectories")):
         npz_files = natsorted(glob.glob(str(traj_dir / "*.npz")))
@@ -80,29 +126,34 @@ def main():
             continue
 
         frames_main = []
-        frames_wrist = []
+        # frames_wrist = []
         states = []
+        joints = []
 
         for npz_file in npz_files:
             data = np.load(npz_file)
-            main_rgb = data['main_camera_rgb']
-            wrist_rgb = data['wrist_camera_rgb']
+            # import ipdb
+            # ipdb.set_trace()
+            main_rgb = data['left_camera_rgb']
+            # wrist_rgb = data['wrist_camera_rgb']
             endpose = data['robot_endpose']  # (8,)
-
-            main_resized = cv2.resize(main_rgb, (VIDEO_WIDTH, VIDEO_HEIGHT), interpolation=cv2.INTER_AREA)
-            wrist_resized = cv2.resize(wrist_rgb, (VIDEO_WIDTH, VIDEO_HEIGHT), interpolation=cv2.INTER_AREA)
+            joint = data['robot_joints_angle']
+            main_resized = center_crop_and_resize(main_rgb, (VIDEO_HEIGHT, VIDEO_WIDTH))
+            # wrist_resized = center_crop_and_resize(wrist_rgb, main_resized)
 
             frames_main.append(main_resized.astype(np.uint8))
-            frames_wrist.append(wrist_resized.astype(np.uint8))
+            # frames_wrist.append(wrist_resized.astype(np.uint8))
             states.append(endpose.astype(np.float32))
+            joints.append(joint.astype(np.float32))
 
         states = np.array(states)  # (T, 8)
-        T = len(states)
+        joints = np.array(joints)
+        T = len(joints)
 
         # 构造 state: state[t] = action[t-1], state[0] = action[0]
-        actions = np.zeros_like(states)
-        actions[:-1] = states[1:]
-        actions[-1] = states[-1]
+        actions = np.zeros_like(joints)
+        actions[:-1] = joints[1:]
+        actions[-1] = joints[-1]
 
         # 保存 parquet
         chunk_id = ep_idx // DEFAULT_CHUNK_SIZE
@@ -114,9 +165,9 @@ def main():
         main_video_path.parent.mkdir(parents=True, exist_ok=True)
         save_video(frames_main, str(main_video_path))
 
-        wrist_video_path = videos_wrist_dir/ f"chunk-{chunk_id:03d}" / "observation.images.wrist_image" / f"episode_{ep_idx:06d}.mp4"
-        wrist_video_path.parent.mkdir(parents=True, exist_ok=True)
-        save_video(frames_wrist, str(wrist_video_path))
+        # wrist_video_path = videos_wrist_dir/ f"chunk-{chunk_id:03d}" / "observation.images.wrist_image" / f"episode_{ep_idx:06d}.mp4"
+        # wrist_video_path.parent.mkdir(parents=True, exist_ok=True)
+        # save_video(frames_wrist, str(wrist_video_path))
 
         
 
@@ -142,7 +193,7 @@ def main():
         global_actions.extend(actions)
         global_states.extend(states)
         all_main_videos.extend(frames_main)
-        all_wrist_videos.extend(frames_wrist)
+        # all_wrist_videos.extend(frames_wrist)
 
     # === 计算全局统计 ===
     global_actions = np.array(global_actions)  # (N, 7)
@@ -165,7 +216,7 @@ def main():
     }
 
     main_video_stats = compute_video_stats(all_main_videos)
-    wrist_video_stats = compute_video_stats(all_wrist_videos)
+    # wrist_video_stats = compute_video_stats(all_wrist_videos)
 
     # === 写入 meta/episodes_stats.jsonl ===
     with open(meta_dir / "episodes_stats.jsonl", 'w') as f:
@@ -175,7 +226,7 @@ def main():
                 "episode_index": ep["episode_index"],
                 "stats": {
                     "observation.images.image": main_video_stats,
-                    "observation.images.wrist_image": wrist_video_stats,
+                    # "observation.images.wrist_image": wrist_video_stats,
                     "observation.state": state_stats,
                     "action": action_stats,
                     "timestamp": {
@@ -260,21 +311,21 @@ def main():
                     "has_audio": False
                 }
             },
-            "observation.images.wrist_image": {
-                "dtype": "video",
-                "shape": [VIDEO_HEIGHT, VIDEO_WIDTH, 3],
-                "names": ["height", "width", "rgb"],
-                "info": {
-                    "video.height": VIDEO_HEIGHT,
-                    "video.width": VIDEO_WIDTH,
-                    "video.codec": "av1",
-                    "video.pix_fmt": "yuv420p",
-                    "video.is_depth_map": False,
-                    "video.fps": FPS,
-                    "video.channels": 3,
-                    "has_audio": False
-                }
-            },
+            # "observation.images.wrist_image": {
+            #     "dtype": "video",
+            #     "shape": [VIDEO_HEIGHT, VIDEO_WIDTH, 3],
+            #     "names": ["height", "width", "rgb"],
+            #     "info": {
+            #         "video.height": VIDEO_HEIGHT,
+            #         "video.width": VIDEO_WIDTH,
+            #         "video.codec": "av1",
+            #         "video.pix_fmt": "yuv420p",
+            #         "video.is_depth_map": False,
+            #         "video.fps": FPS,
+            #         "video.channels": 3,
+            #         "has_audio": False
+            #     }
+            # },
             "observation.state": {
                 "dtype": "float32",
                 "shape": [8],

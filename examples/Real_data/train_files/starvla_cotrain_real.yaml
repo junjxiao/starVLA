@@ -23,8 +23,8 @@ framework:
     max_seq_len: 1024
     action_dim: 8
     state_dim: 8
-    future_action_window_size: 7
-    action_horizon: 8 # need merge with future_action_window_size 
+    future_action_window_size: 9
+    action_horizon: 10 # need merge with future_action_window_size 
     past_action_window_size: 0
     repeated_diffusion_steps: 8
     noise_beta_alpha: 1.5
