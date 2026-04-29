@@ -169,12 +169,14 @@ class ModelClient:
         """Prepare observation for policy input."""
         # Get preprocessed images
         img = obs['main_camera_rgb']
-        wrist_img = obs['wrist_camera_rgb']
-
+        # wrist_img = obs['wrist_camera_rgb']
+        if 'lang' in obs:
+            task_description = obs['lang']
+        else:
+            task_description = self.task_description
         example = {
-            "image": [img, wrist_img],
-            'state': [obs['robot_endpose']],
-            "lang": self.task_description,
+            "image": [img],
+            "lang": task_description,
         }
 
         return example

@@ -33,7 +33,7 @@ framework:
     num_timestep_buckets: 1000
     num_inference_timesteps: 4
     num_target_vision_tokens: 32
-    use_state: true
+    use_state: false
     diffusion_model_cfg:    # DiT Transformers 的参数
       cross_attention_dim: 2048 # VLM 的 dim
       dropout: 0.2
