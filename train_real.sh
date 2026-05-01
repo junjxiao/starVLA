@@ -2,30 +2,30 @@
 # DEEPSPEED_CONFIG_FILE=starVLA/config/deepseeds/zero0.json,
 ENVS="CHECKPOINT_BASEDIR=/mnt/workspace/zengshuang.zs/checkpoints,WANDB_MODE=offline,HF_HOME=/mnt/workspace/yangyandan/cache/huggingface,HF_ENDPOINT=https://hf-mirror.com"
 
-run_id=0501_real_all_Qwen3vlGR00TSpatialAML_vggt_cross_bs16
+run_id=0501_real_all_Qwen3vlGR00TSpatialAML_vggt_image_edit_cross_bs8
 args="--config_yaml ./examples/Real_data/train_files/starvla_cotrain_real.yaml \
       --framework.name QwenGR00TSpatialAML \
       --framework.qwenvl.base_vlm /mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action \
       --datasets.vla_data.data_root_dir /mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot \
       --datasets.vla_data.data_mix real_all \
-      --datasets.vla_data.per_device_batch_size 16 \
+      --datasets.vla_data.per_device_batch_size 8 \
       --trainer.vla_data.video_backend torchvision_av \
       --trainer.freeze_modules 'spatial_model,image_edit_model' \
       --trainer.max_train_steps 30000 \
       --trainer.save_interval 5000 \
       --trainer.logging_frequency 100 \
-      --trainer.eval_interval 1000 \
+      --trainer.eval_interval 1000000 \
       --run_root_dir /mnt/workspace/junjin/code/starVLA/checkpoints \
       --run_id ${run_id} \
       --wandb_entity junjin \
       --wandb_project ${run_id}\
-      --framework.image_edit_model null \
+      --framework.image_edit_model.view_num 2 \
+      --framework.image_edit_model.fuser_type mlp_gated_tranformer \
       --framework.fuser.type cross_attention \
       --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
       --trainer.reload_modules qwen_vl_interface \
       "
-# --framework.image_edit_model.view_num 2 \
-#       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
+      # --framework.image_edit_model null \
 # --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt \
 
       # --trainer.resume_from_checkpoint null \
@@ -39,7 +39,9 @@ echo "${ENVS}"
 echo ""
 
 #amap_app_common_h20_nm125
-nebulactl run mdl --queue=amap-poi_ppu810e \
+# amap_app_vtspoi_mi308_nu8
+# amap-poi_ppu810e
+nebulactl run mdl --queue=amap_app_vtspoi_mi308_nu8 \
                   --entry="starVLA/training/train_starvla.py" \
                   --algo_name=pytorch280 \
                   --worker_count=4 \
