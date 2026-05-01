@@ -24,6 +24,8 @@ args="--config_yaml ./examples/Real_data/train_files/starvla_cotrain_real.yaml \
       --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
       --trainer.reload_modules qwen_vl_interface \
       "
+# --framework.image_edit_model.view_num 2 \
+#       --framework.image_edit_model.fuser_type mlp_gated_tranformer \
 # --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0116_liberoall_Qwen3vlGR00T_vggt_longcat_image_edit_cross_bs16/checkpoints/steps_10000_pytorch_model.pt \
 
       # --trainer.resume_from_checkpoint null \

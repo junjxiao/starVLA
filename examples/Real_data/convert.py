@@ -53,7 +53,7 @@ TASK_INSTRUCTIONS = {
     "place_cylinder": "Place the blue cylinder on the green block.",
     "stack_block": "Stack the blue block on the red block."
 }
-task = "place_cup"
+task = "stack_block"
 # === 配置 ===
 INPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/vla_dataset/real_vladata/{task}/data")
 OUTPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot/{task}")

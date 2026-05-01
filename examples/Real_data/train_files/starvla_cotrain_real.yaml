@@ -59,10 +59,12 @@ framework:
     input_dim: 2560
     ouptput_dim: 2560
   image_edit_model:
-    # model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
     model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit
     lora_path: /mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000
-    view_num: 1
+    view_num: 2
+    fuser_type: mmdit
+    read_from_local: false
+    num_inference_steps: 2
 datasets:
   vlm_data:
     dataset_py: vlm_datasets
