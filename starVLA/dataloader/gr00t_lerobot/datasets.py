@@ -955,6 +955,8 @@ class LeRobotSingleDataset(Dataset):
         Returns:
             np.ndarray: The data for the trajectory and step indices.
         """
+        # import ipdb
+        # ipdb.set_trace()
         # Get the step indices
         step_indices = self.delta_indices[key] + base_index
         # Get the trajectory index
@@ -1574,7 +1576,8 @@ class LeRobotMixtureDataset(Dataset):
             try:
                 dataset, trajectory_name, step = self.sample_step(index)
                 data_raw = dataset.get_step_data(trajectory_name, step)
-                
+                # import ipdb
+                # ipdb.set_trace()
                 data = dataset.transforms(data_raw)
                 
                 # Process all video keys dynamically

@@ -46,8 +46,8 @@ from pathlib import Path
 
 api = HubApi()
 api.upload_folder(
-repo_id='junjxiao/robotwin',
-folder_path='/mnt/workspace/junjin/code/starVLA/checkpoints/robotwin',
+repo_id='junjxiao/real_all_20000',
+folder_path='/mnt/workspace/junjin/code/starVLA/checkpoints/real_all_20000',
 commit_message='Initial release',
 repo_type='model'
 )

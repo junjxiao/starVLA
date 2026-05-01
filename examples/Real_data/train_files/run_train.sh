@@ -10,14 +10,14 @@
 # export NCCL_SOCKET_TIMEOUT_MS=360000
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00TSpatial #QwenGR00T, QwenGR00TSpatial
+Framework_name=QwenGR00TSpatialAML #QwenGR00T, QwenGR00TSpatial
 # freeze_module_list="qwen_vl_interface.model,spatial_model,qwen_image_edit_model.text_encoder,qwen_image_edit_model.transformer,qwen_image_edit_model.vae"
 freeze_module_list="qwen_vl_interface.model,spatial_model,image_edit_model"
 
-base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct
+base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action
 config_yaml=./examples/Real_data/train_files/starvla_cotrain_real.yaml
 libero_data_root=/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21
-data_mix=put_toy_in_cabinet
+data_mix=real_all
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
 run_id=test_real
 # === End of environment variable configuration ===
@@ -60,7 +60,7 @@ cp $0 ${output_dir}/
 
 
 
-CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=2 torchrun --nproc_per_node=1\
   --master_port=29502\
   starVLA/training/train_starvla.py \
   --deepspeed starVLA/config/deepseeds/zero3.json \
@@ -78,8 +78,11 @@ CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
   --trainer.eval_interval 1 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --framework.fuser.type 'cross_attention' \
+  --datasets.vla_data.num_workers 0 \
   --framework.image_edit_model null \
+  --framework.fuser.type cross_attention \
+  --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/real_all_30000/checkpoints/steps_30000_pytorch_model.pt \
+  # --trainer.reload_modules qwen_vl_interface \
   # --trainer.pretrained_checkpoint /mnt/workspace/junjin/code/starVLA/checkpoints/0109_liberoall_Qwen3vlGR00T_no_vggt_longcat_image_edit_cross_bs4_test2/checkpoints/steps_1000_pytorch_model.pt
   
   # --is_debug True

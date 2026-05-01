@@ -1350,7 +1350,7 @@ class RealDataConfig:
                 "action.z": "min_max",
                 "action.qx": "min_max",
                 "action.qy": "min_max",
-                "action.qx": "min_max",
+                "action.qz": "min_max",
                 "action.qw": "min_max",
             },
         ),

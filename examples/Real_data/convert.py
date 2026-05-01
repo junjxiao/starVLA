@@ -48,15 +48,15 @@ def center_crop_and_resize(image: np.ndarray, target_size: tuple) -> np.ndarray:
     return resized.astype(np.uint8)
 
 TASK_INSTRUCTIONS = {
-    "place_cup": "Place the green cup on the red block.",
+    "place_cup": "Place the yellow cup on the red block.",
     "insert_cube": "Insert the pink cube into the red cup.",
-    "place_cylinder": "Place the cylinder on the block.",
+    "place_cylinder": "Place the blue cylinder on the green block.",
     "stack_block": "Stack the blue block on the red block."
 }
 task = "place_cup"
 # === 配置 ===
 INPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/vla_dataset/real_vladata/{task}/data")
-OUTPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot_v21/{task}")
+OUTPUT_ROOT = Path(f"/mnt/xlab-nas-1/junjin/dataset/real_vla_lerobot/{task}")
 
 # === 常量 ===
 DEFAULT_CHUNK_SIZE = 1000

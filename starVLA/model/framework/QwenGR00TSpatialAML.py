@@ -1027,6 +1027,7 @@ class Qwen_GR00TSpatialAML(baseframework):
             dict:
                 normalized_actions (np.ndarray): Shape [B, T, action_dim], diffusion-sampled normalized actions.
         """
+
         if type(examples) is not list:
             examples = [examples]
         batch_images = [to_pil_preserve(example["image"]) for example in examples]  #  [B，[PLT]]
