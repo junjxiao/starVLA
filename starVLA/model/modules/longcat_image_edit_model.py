@@ -410,7 +410,7 @@ class LongCatImageEditModel(nn.Module):
             latents_unpacked = (latents_unpacked / self.vae.config.scaling_factor) + self.vae.config.shift_factor
             image_decoded = self.vae.decode(latents_unpacked.to(self.vae.dtype), return_dict=False)[0]
             images_pil = self.image_processor.postprocess(image_decoded, output_type="pil")
-            return images_pil  # List[PIL.Image.Image]
+            return latents_packed, images_pil  # List[PIL.Image.Image]
 
     @classmethod
     def from_pretrained(

@@ -1,14 +1,20 @@
 #!/bin/bash
-eval "$(conda shell.bash hook)"
-conda activate python3.10
-
+# eval "$(conda shell.bash hook)"
+# conda activate python3.10
+#in ppu
+# export SAPIEN_RENDER_ENGINE="cpu"
 # === 更改你的配置 ===
-STARVLA_PATH=/mnt/workspace/junjin/code/starVLA
-policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2/0130_robotwin2_QwenJAT_vggt_sft_64GPUs_chunk30/checkpoints/steps_35000_pytorch_model.pt
-log_path=/mnt/workspace/junjin/code/starVLAPretrain/outputs/robotwin/0130_robotwin2_QwenJAT_vggt_sft_64GPUs_chunk30_step35000
+STARVLA_PATH=/mnt/workspace/junjin/code/starVLAPretrain
+# policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2_mix/0205_robotwin2_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5/checkpoints/steps_60000_pytorch_model.pt
+# log_path=/mnt/workspace/zengshuang.zs/eval/robotwin/0205_robotwin2_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_3e-5_step60000
+policy_ckpt_path=/mnt/workspace/zengshuang.zs/output/robotwin2_mix/0220_robotwin_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_h20/checkpoints/steps_125000_pytorch_model.pt
+log_path=/mnt/workspace/zengshuang.zs/eval/robotwin/0220_robotwin_mix_QwenJAT_vggt_sft_64GPUs_GOAR_task_balance_1w_h20_125000_clean_full
+NUM_GPUS=1
+test_num=100
 task_config="demo_clean"
-NUM_GPUS=8
-TASKS_PER_GPU=3
+# task_config="demo_randomized"
+gpus=(0 1 2 3)
+# gpus=(0 1 2 3 4 5 6 7)
 # === === ===
 
 
@@ -19,64 +25,66 @@ seed=0
 policy_name="model2robotwin_interface"
 
 
-MAX_CONCURRENT=$((NUM_GPUS * TASKS_PER_GPU))  # 24
+TASKS_PER_GPU=3
+MAX_CONCURRENT=$((${#gpus[@]} * TASKS_PER_GPU))
 
 export PYTHONPATH="$ROBOTWIN_PATH:$EVAL_FILES_PATH:$STARVLA_PATH:${PYTHONPATH}"
 cd "$ROBOTWIN_PATH"
 
 # 获取任务列表
 task_names=(
-    adjust_bottle
-    beat_block_hammer
-    blocks_ranking_rgb
-    blocks_ranking_size
-    click_alarmclock
-    click_bell
-    dump_bin_bigbin
-    grab_roller
-    handover_block
-    handover_mic
-    hanging_mug
-    lift_pot
-    move_can_pot
-    move_pillbottle_pad
-    move_playingcard_away
-    move_stapler_pad
-    open_laptop
-    open_microwave
-    pick_diverse_bottles
-    pick_dual_bottles
-    place_a2b_left
-    place_a2b_right
-    place_bread_basket
-    place_bread_skillet
-    place_burger_fries
-    place_can_basket
-    place_cans_plasticbox
-    place_container_plate
-    place_dual_shoes
-    place_empty_cup
-    place_fan
-    place_mouse_pad
+    # adjust_bottle
+    # beat_block_hammer
+    # blocks_ranking_rgb
+    # blocks_ranking_size
+    # click_alarmclock
+    # click_bell
+    # dump_bin_bigbin
+    # grab_roller
+    # handover_block
+    # handover_mic
+    # hanging_mug
+    # lift_pot
+    # move_can_pot
+    # move_pillbottle_pad
+    # move_playingcard_away
+    # move_stapler_pad
+    # open_laptop
+    # open_microwave
+    # pick_diverse_bottles
+    # pick_dual_bottles
+    # place_a2b_left
+    # place_a2b_right
+    # place_bread_basket
+    # place_bread_skillet
+    # place_burger_fries # split from here
+    # place_can_basket
+    # place_cans_plasticbox
+    # place_container_plate
+    # place_dual_shoes
+    # place_empty_cup
+    # place_fan
+    # place_mouse_pad
     place_object_basket
-    place_object_scale
-    place_object_stand
-    place_phone_stand
-    place_shoe
-    press_stapler
-    put_bottles_dustbin
-    put_object_cabinet
-    rotate_qrcode
-    scan_object
-    shake_bottle_horizontally
-    shake_bottle
-    stack_blocks_three
-    stack_blocks_two
-    stack_bowls_three
-    stack_bowls_two
-    stamp_seal
-    turn_switch
+    # place_object_scale
+    # place_object_stand
+    # place_phone_stand
+    # place_shoe
+    # press_stapler
+    # put_bottles_dustbin
+    # put_object_cabinet
+    # rotate_qrcode
+    # scan_object
+    # shake_bottle_horizontally
+    # shake_bottle
+    # stack_blocks_three
+    # stack_blocks_two
+    # stack_bowls_three
+    # stack_bowls_two
+    # stamp_seal
+    # turn_switch
 )
+# task_names=("$@")
 total_tasks=${#task_names[@]}
 
 if [ $total_tasks -eq 0 ]; then
@@ -85,7 +93,7 @@ if [ $total_tasks -eq 0 ]; then
 fi
 
 echo "✅ Total tasks: $total_tasks"
-echo "✅ Max concurrent: $MAX_CONCURRENT ($NUM_GPUS GPUs × $TASKS_PER_GPU tasks/GPU)"
+echo "✅ Max concurrent: $MAX_CONCURRENT (${#gpus[@]} GPUs × $TASKS_PER_GPU tasks/GPU)"
 
 # 创建日志目录
 LOG_DIR="${log_path}/logs/${task_config}"
@@ -111,19 +119,20 @@ run_task() {
         port "$port" \
         policy_ckpt_path "$policy_ckpt_path" \
         log_path "$log_path" \
+        test_num "$test_num" \
         2>&1 | tee "$log_file"
 }
 
 # 导出函数供 xargs 使用
 export -f run_task
 export ROBOTWIN_PATH EVAL_FILES_PATH DEPLOY_POLICY_PATH
-export policy_ckpt_path log_path task_config seed policy_name LOG_DIR
+export policy_ckpt_path log_path task_config seed policy_name LOG_DIR test_num
 
 # === 构建任务列表（task,gpu_id,port）===
 # 使用轮询分配 GPU: task0→GPU0, task1→GPU1, ..., task8→GPU0...
 {
     for i in "${!task_names[@]}"; do
-        gpu_id=$((i % NUM_GPUS))
+        gpu_id=${gpus[$((i % ${#gpus[@]}))]}
         port=$((5695 + i))
         echo "${task_names[i]},$gpu_id,$port"
     done

@@ -8,4 +8,16 @@ unnorm_key="franka"
 # export CUDA_VISIBLE_DEVICES=3
 python examples/sim-evals/run_eval_starvla.py --episodes 10 --scene $scene --headless --log_dir $log_dir --port $port --ckpt $ckpt --unnorm_key $unnorm_key
 
+# #!/bin/bash
+# source /home/star/raid0/changxinyuan.cxy/isaacsim/setup_conda_env.sh
+# export PYTHONPATH=$PYTHONPATH:$(pwd) 
+# ckpt=/home/star/raid0/changxinyuan.cxy/ckpts/0315_roboarena_QwenJAT_sft_joint_worker2/checkpoints/steps_5000_pytorch_model.pt
+# log_dir=/home/star/raid0/changxinyuan.cxy/outputs/droid/test_5000
+# port=9880
+# scene=1
+# unnorm_key="new_embodiment"
+# # export CUDA_VISIBLE_DEVICES=3
+# python examples/sim-evals/run_eval_starvla.py --episodes 10 --scene $scene --headless --log_dir $log_dir --port $port --ckpt $ckpt --unnorm_key $unnorm_key
+
+
 

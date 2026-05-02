@@ -29,8 +29,8 @@ from starVLA.model.framework.share_tools import dict_to_namespace
 from starVLA.model.framework.__init__ import build_framework
 # from diffusers import QwenImageEditPlusPipeline
 # from diffusers import LongCatImageEditPipeline
-from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
-from diffusers import QwenImageEditPlusPipeline
+# from starVLA.model.modules.longcat_image_edit_model import LongCatImageEditModel
+# from diffusers import QwenImageEditPlusPipeline
 logger = initialize_overwatch(__name__)
 
 
@@ -98,6 +98,9 @@ class baseframework(PreTrainedModel):
         config = dict_to_namespace(model_config)
         model_config = config
         model_config.trainer.pretrained_checkpoint = None
+        
+        if getattr(model_config.framework, 'image_edit_model', None) is not None:
+            model_config.framework.image_edit_model.read_from_local = False
         # FrameworkModel = cls(config=model_config, **kwargs) # TODO find cls by config
         FrameworkModel = build_framework(cfg=model_config)
         

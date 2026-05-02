@@ -51,6 +51,7 @@ framework:
   fuser:
     type: concat #cross_attention or mlayer
   reduce_in_full_precision: true
+  use_mv_images: false
   layer_qformer:
     num_layers: 4
     num_query_tokens: 128
@@ -60,7 +61,9 @@ framework:
     # model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/Qwen-Image-Edit-2509
     model_name_or_path: /mnt/xlab-nas-1/junjin/pretrained_models/LongCat-Image-Edit
     lora_path: /mnt/workspace/junjin/code/LongCat-Image/output/edit_lora_model_10000step/checkpoints-9000
-
+    view_num: 1
+    fuser_type: mmdit
+    read_from_local: true
 
 datasets:
   vlm_data:

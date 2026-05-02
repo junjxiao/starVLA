@@ -10,13 +10,13 @@
 
 ###########################################################################################
 # === Please modify the following paths according to your environment ===
-Framework_name=QwenGR00TSpatial
+Framework_name=QwenGR00TSpatialAML
 freeze_module_list='qwen_vl_interface.model,spatial_model,image_edit_model'
 base_vlm=/mnt/workspace/zengshuang.zs/checkpoints/Qwen3-VL-4B-Instruct-Action
-config_yaml=./examples/Robotwin/train_files/starvla_cotrain_robotwin.yaml
-data_root=/mnt/workspace/vla_dataset/benchmark/RoboTwin-Clean
+config_yaml=./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs.yaml
+data_root=/mnt/workspace/vla_dataset/benchmark
 run_root_dir=/mnt/workspace/junjin/code/starVLA/checkpoints
-data_mix=robotwin
+data_mix=robotwin_mix
 run_id=test_robotwin
 # === End of environment variable configuration ===
 ###########################################################################################
@@ -37,7 +37,7 @@ cp $0 ${output_dir}/
 
 # --config_file starVLA/config/deepseeds/deepspeed_zero2.yaml \
 #   --num_processes 8 \
-CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
+CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1\
   --master_port=29502\
   starVLA/training/train_starvla.py \
   --config_yaml ${config_yaml} \
@@ -45,8 +45,8 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --framework.qwenvl.base_vlm ${base_vlm} \
   --datasets.vla_data.data_root_dir ${data_root}\
   --datasets.vla_data.per_device_batch_size 1 \
+  --datasets.vla_data.num_workers 0 \
   --datasets.vla_data.data_mix ${data_mix} \
-  --datasets.vla_data.per_device_batch_size 1 \
   --trainer.vla_data.video_backend torchvision_av \
   --trainer.freeze_modules ${freeze_module_list} \
   --trainer.max_train_steps 100000 \
@@ -56,7 +56,11 @@ CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1\
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
   --framework.fuser.type 'cross_attention' \
-  --framework.spatial_model null \
+  --framework.image_edit_model.view_num 2 \
+  --framework.image_edit_model.fuser_type 'mlp_gated_tranformer' \
+  # --trainer.pretrained_checkpoint /mnt/workspace/lintong.lt/output/vla_pretrain/0323_pretrain_Qwen3VL4BJAT_bs2048/checkpoints/steps_14000_pytorch_model.pt \
+  # --trainer.reload_modules qwen_vl_interface,action_model \
+  # --datasets.vla_data.mv_data_root_dir /mnt/xlab-nas-1/junjin/dataset/libero_mv_feats \
 
 
 
